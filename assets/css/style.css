@@ -23,6 +23,10 @@
     --sidebar-radius: 28px;
     --radius-xl: 24px;
     --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.10);
+    --dhl-red: #D2002E;     
+    --dhl-yellow: #FFCC00 ;      
+  --eqf-levic: #0A79BE;        
+  --eqf-levic-hover: #0891B2;
 }
 
 /* Reset básico */
@@ -312,7 +316,7 @@ body {
     box-shadow: none;
 }
 
-.btn-primary, .btn-secondary, .btn-main-combined{
+.btn-primary, .btn-secondary, .btn-main-combined,.btn-white{
     height: 40px;          
     width: 150px;           
     border-radius: 999px;
@@ -1330,6 +1334,9 @@ body.sidebar-collapsed .user-main{
 .btn-primary {
     background-color: var(--eqf-blue);
     color: #ffffff;
+}
+.btn-white {
+    background-color: var(--eqf-bg);
 }
 .btn-secondary {
     background-color: var(--eqf-red);
@@ -3379,4 +3386,180 @@ table.dataTable tbody tr:hover {
 @media (max-width: 800px){
   .user-topbar{ flex-direction: column; }
   .user-topbar-right{ padding-top:0; width:100%; justify-content:flex-start; }
+}
+.image-modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  padding-top: 60px;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.85);
+  text-align: center;
+}
+
+.image-modal-content {
+  max-width: 80%;
+  max-height: 80%;
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+  animation: zoomIn 0.2s ease-in-out;
+}
+
+.image-modal-close {
+  position: absolute;
+  top: 20px;
+  right: 35px;
+  color: white;
+  font-size: 30px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.image-modal-close:hover {
+  color: #ccc;
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.eqf-input-readonly {
+  background-color: #f3f4f6 !important;
+  color: #6b7280 !important;
+  border: 1px solid #e5e7eb !important;
+  cursor: not-allowed;
+}
+
+.eqf-input-readonly:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.eqf-eq-mini select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, .12);
+  background: #fff;
+}
+
+.eqf-eq-mini select:disabled {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.eqf-input-readonly {
+  background-color: #f3f4f6 !important;
+  color: #6b7280 !important;
+  border: 1px solid #e5e7eb !important;
+  cursor: not-allowed;
+}
+
+.eqf-input-readonly:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* LINKS DE SOLICITUD DE EQUIPOS */
+
+.equipment-link-dhl{
+  background: none;
+  border: 0;
+  padding: 0;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: underline;
+
+  background: linear-gradient(90deg, var(--dhl-red) 0 65%, var(--dhl-yellow) 35% 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.task-link-eqf:hover{
+  opacity: .85;
+}
+
+.equipment-link-levic{
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--eqf-levic);
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.task-link-levic:hover{
+  opacity: .85;
+}
+.equipment-link-corpo{
+  background: none;
+  border: 0;
+  padding: 0;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: underline;
+
+  background: linear-gradient(90deg, var(--eqf-blue) 0 55%, var(--eqf-red) 45% 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.task-link-eqf:hover{
+  opacity: .85;
+}
+
+.portal-link {
+    font-size: 14px;
+    color: #1f3c88; /* azul EQF */
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.portal-link:hover {
+    text-decoration: underline;
+    opacity: 0.8;
+}
+.extra-links {
+    text-align: right;
+    margin-top: 8px;
+}
+.actions-cell{
+  white-space: nowrap;
+  text-align: center;
+}
+
+.actions-cell .action-link{
+  text-decoration: none;
+  font-weight: 700;
+  color: #0b57d0;
+  cursor: pointer;
+}
+
+.actions-cell .action-link:hover{
+  text-decoration: underline;
+}
+
+.actions-cell .action-sep{
+  margin: 0 8px;
+  color: #999;
+  font-weight: 600;
+}
+
+table.dataTable td.actions-cell{
+  white-space: nowrap !important;
 }

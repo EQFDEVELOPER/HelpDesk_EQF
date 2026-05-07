@@ -1,44 +1,42 @@
 <?php
+date_default_timezone_set('America/Mexico_City');
 
 class Database
 {
-    private static ?Database $instance = null;
-    private \PDO $connection;
+    private static $instance = null;
+    private $connection;
 
-    /**
-     * Constructor privado: configura la conexión.
-     */
     private function __construct()
     {
-        $host = 'localhost';
-        $db   = 'eqf_helpdesk';
-        $user = 'root';
-        $pass = '';
+        $host = 'eqfhelpdesk.com.mx';
+        $db   = 'eqfhelpd_eqf_helpdesk';
+        $user = 'eqfhelpd_ti';
+        $pass = '8[2cYiY5g)c4OD';
         $charset = 'utf8mb4';
 
         $dsn = "mysql:host={$host};dbname={$db};charset={$charset}";
 
         try {
-            $this->connection = new \PDO(
+            $this->connection = new PDO(
                 $dsn,
                 $user,
                 $pass,
                 [
-                    \PDO::ATTR_ERRMODE            => \PDO::ERRMODE_EXCEPTION,
-                    \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-                    \PDO::ATTR_EMULATE_PREPARES   => false,
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES   => false,
                 ]
             );
-        } catch (\PDOException $e) {
-            // Aquí puedes personalizar el manejo de error
-            die('Error de conexión a la base de datos: ' . $e->getMessage());
+
+            $this->connection->exec("SET time_zone = '-06:00'");
+            $this->connection->exec("SET NAMES utf8mb4");
+
+        } catch (PDOException $e) {
+            die('Error de conexi��n a la base de datos: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Punto de acceso único al PDO (Facade).
-     */
-    public static function getConnection(): \PDO
+    public static function getConnection()
     {
         if (self::$instance === null) {
             self::$instance = new self();

@@ -52,22 +52,23 @@
 
     const iconPath = '/HelpDesk_EQF/assets/img/icon_desktop.png';
 
-    if ('serviceWorker' in navigator) {
-      try {
-        const reg = await navigator.serviceWorker.getRegistration('/HelpDesk_EQF/');
-        if (reg && reg.showNotification) {
-          await reg.showNotification(title || 'HelpDesk EQF', {
-            body: body || '',
-            icon: iconPath,
-            badge: iconPath,
-            tag: tag || undefined,
-            data: { url: link || '/HelpDesk_EQF/' },
-            renotify: false
-          });
-          return;
-        }
-      } catch (e) {}
+if ('serviceWorker' in navigator) {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (reg && reg.showNotification) {
+      await reg.showNotification(title || 'HelpDesk EQF', {
+        body: body || '',
+        icon: iconPath,
+        badge: iconPath,
+        tag: tag || undefined,
+        data: { url: link || '/HelpDesk_EQF/' },
+        renotify: false
+      });
+      return;
     }
+  } catch (e) {}
+}
+
 
     const n = new Notification(title || 'HelpDesk EQF', {
       body: body || '',
@@ -94,6 +95,51 @@
   }
 
   let running = false;
+async function initPushEQF() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+  // Registrar el Service Worker (debe existir /HelpDesk_EQF/sw.js)
+const reg = await navigator.serviceWorker.register("/HelpDesk_EQF/sw.js", { scope: "/HelpDesk_EQF/" });
+
+  // Pedir permiso
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") return;
+
+  // Pedir publicKey al server
+  const r = await fetch("/HelpDesk_EQF/api/push_public_key.php", { credentials: "include" });
+  const j = await r.json();
+  if (!j.ok || !j.publicKey) return;
+
+  // Reusar suscripción si ya existe
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(j.publicKey),
+    });
+  }
+
+  // Guardar suscripción en BD
+  await fetch("/HelpDesk_EQF/api/push_subscribe.php", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sub),
+  });
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const out = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) out[i] = rawData.charCodeAt(i);
+  return out;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initPushEQF().catch(() => {});
+});
 
   async function poll() {
     if (running) return;

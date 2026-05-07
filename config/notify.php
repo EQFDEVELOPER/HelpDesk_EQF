@@ -1,7 +1,5 @@
 <?php
-// OJO: aquí NO se crea $pdo.
-// Este archivo solo define funciones.
-// En donde lo uses, tú ya tendrás: $pdo = Database::getConnection();
+
 
 function notify_user(PDO $pdo, int $userId, string $type, string $title, string $body, ?string $link = null): void {
     $type  = trim($type);

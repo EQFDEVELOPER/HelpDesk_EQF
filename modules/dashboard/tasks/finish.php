@@ -25,7 +25,9 @@ if ($taskId <= 0) {
 }
 
 $pdo->beginTransaction();
+
 try {
+  // 1) Leer tarea actual
   $stmt = $pdo->prepare("
     SELECT status, finished_at
     FROM tasks
@@ -34,12 +36,13 @@ try {
     LIMIT 1
   ");
   $stmt->execute([$taskId, $analystId]);
-  $row = $stmt->fetch(PDO::FETCH_ASSOC);
+  $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if (!$row || ($row['status'] ?? '') !== 'EN_PROCESO') {
+  if (!$task || ($task['status'] ?? '') !== 'EN_PROCESO') {
     throw new RuntimeException('No puedes finalizar esta tarea.');
   }
 
+  // 2) Actualizar a FINALIZADA
   $now = date('Y-m-d H:i:s');
 
   $upd = $pdo->prepare("
@@ -52,44 +55,54 @@ try {
     LIMIT 1
   ");
   $upd->execute([$now, $taskId, $analystId]);
-// ===== NOTIFICACIÓN (FINISH) al admin creador =====
-$stmtInfo = $pdo->prepare("SELECT created_by_admin_id, title FROM tasks WHERE id=? LIMIT 1");
-$stmtInfo->execute([$taskId]);
-$info = $stmtInfo->fetch(PDO::FETCH_ASSOC) ?: [];
-
-$adminId = (int)($info['created_by_admin_id'] ?? 0);
-$taskTitle = (string)($info['title'] ?? '');
-
-if ($adminId > 0) {
-  $link = "/HelpDesk_EQF/modules/dashboard/tasks/view.php?id=" . (int)$taskId;
-
-  $stmtN = $pdo->prepare("
-    INSERT INTO notifications (user_ide, type, title, body, link, is_read, created_at)
-    VALUES (?, 'task_finished', ?, ?, ?, 0, NOW())
-  ");
-  $stmtN->execute([
-    $adminId,
-    "Tarea finalizada (#{$taskId})",
-    "El analista finalizó: " . ($taskTitle ?: 'Sin título'),
-    $link
-  ]);
-}
 
   if ($upd->rowCount() <= 0) {
     throw new RuntimeException('No se pudo finalizar la tarea.');
   }
 
+  // 3) Log dentro de transacción
   logTaskEvent(
     $pdo,
     $taskId,
     $analystId,
     'FINISHED',
     'Analista finalizó tarea',
-    ['status' => ($row['status'] ?? null), 'finished_at' => ($row['finished_at'] ?? null)],
+    ['status' => ($task['status'] ?? null), 'finished_at' => ($task['finished_at'] ?? null)],
     ['status' => 'FINALIZADA', 'finished_at' => $now]
   );
 
+  // 4) Commit UNA sola vez
   $pdo->commit();
+
+  // 5) Notificar fuera de transacción (si falla, NO revierte el status)
+  try {
+    $st = $pdo->prepare("
+      SELECT t.created_by_admin_id,
+             CONCAT(u.name,' ',u.last_name) AS analyst_name
+      FROM tasks t
+      JOIN users u ON u.id = t.assigned_to_user_id
+      WHERE t.id = ?
+      LIMIT 1
+    ");
+    $st->execute([$taskId]);
+    $infoNotify = $st->fetch(PDO::FETCH_ASSOC);
+
+    if ($infoNotify) {
+      $adminId     = (int)$infoNotify['created_by_admin_id'];
+      $analystName = trim($infoNotify['analyst_name'] ?? 'Analista');
+
+      notifyUser(
+        $pdo,
+        $adminId,
+        "Tarea finalizada",
+        "{$analystName} finalizó la tarea (#{$taskId})",
+        "/HelpDesk_EQF/modules/dashboard/tasks/view.php?id={$taskId}"
+      );
+    }
+  } catch (Throwable $e) {
+    // opcional: error_log($e->getMessage());
+  }
+
   $_SESSION['flash_ok'] = 'Tarea finalizada.';
   header('Location: /HelpDesk_EQF/modules/dashboard/tasks/analyst.php');
   exit;

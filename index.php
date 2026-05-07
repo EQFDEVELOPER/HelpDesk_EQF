@@ -1,4 +1,4 @@
-<?php
-header("Location: auth/login.php");
+<?php 
+header("Location: auth/login.php"); 
 exit; 
 ?>

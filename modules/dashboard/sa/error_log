@@ -1,0 +1,9 @@
+[04-May-2026 09:48:06 America/Mexico_City] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1054 Unknown column 't.fecha_primera_respuesta' in 'SELECT' in /home/eqfhelpd/public_html/HelpDesk_EQF/modules/dashboard/sa/reports.php:102
+Stack trace:
+#0 /home/eqfhelpd/public_html/HelpDesk_EQF/modules/dashboard/sa/reports.php(102): PDO->prepare('\r\nSELECT\r\n  t.i...')
+#1 {main}
+  thrown in /home/eqfhelpd/public_html/HelpDesk_EQF/modules/dashboard/sa/reports.php on line 102
+[04-May-2026 11:05:57 America/Mexico_City] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/eqfhelpd/public_html/HelpDesk_EQF/template/header.php:13) in /home/eqfhelpd/public_html/HelpDesk_EQF/modules/dashboard/sa/catalogs.php on line 10
+[04-May-2026 11:05:59 America/Mexico_City] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/eqfhelpd/public_html/HelpDesk_EQF/template/header.php:13) in /home/eqfhelpd/public_html/HelpDesk_EQF/modules/dashboard/sa/documents.php on line 10
+[04-May-2026 11:05:59 America/Mexico_City] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/eqfhelpd/public_html/HelpDesk_EQF/template/header.php:13) in /home/eqfhelpd/public_html/HelpDesk_EQF/modules/dashboard/sa/sa.php on line 10
+[05-May-2026 08:23:11 America/Mexico_City] PHP Warning:  Cannot modify header information - headers already sent by (output started at /home/eqfhelpd/public_html/HelpDesk_EQF/template/header.php:13) in /home/eqfhelpd/public_html/HelpDesk_EQF/modules/dashboard/sa/directory.php on line 10

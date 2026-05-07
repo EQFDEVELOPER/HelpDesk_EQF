@@ -6,9 +6,11 @@ use PHPMailer\PHPMailer\Exception;
 
 /**
  * Envía correo usando la configuración en /config/mailer.php
- * $to ejemplo: ["correo@dominio.com" => "Nombre opcional", "otro@x.com" => ""]
+ * $to ejemplo: ["correo@dominio.com" => "Nombre opcional"]
+ * - $bodyText: versión texto plano (siempre recomendable)
+ * - $bodyHtml: versión HTML opcional
  */
-function sendMailEQF(array $to, string $subject, string $bodyText): bool
+function sendMailEQF(array $to, string $subject, string $bodyText, ?string $bodyHtml = null): bool
 {
     $cfgPath = __DIR__ . '/../config/mailer.php';
     if (!file_exists($cfgPath)) {
@@ -27,17 +29,17 @@ function sendMailEQF(array $to, string $subject, string $bodyText): bool
         $mail->SMTPAuth   = true;
         $mail->Username   = (string)($cfg['username'] ?? '');
         $mail->Password   = (string)($cfg['password'] ?? '');
+
         $encryption = strtolower($cfg['encryption'] ?? 'tls');
-if ($encryption === 'ssl') {
-    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; 
-} else {
-    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; 
-}
-$mail->Port = (int)($cfg['port'] ?? 587);
+        if ($encryption === 'ssl') {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        } else {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        }
+        $mail->Port = (int)($cfg['port'] ?? 587);
 
         $fromEmail = (string)($cfg['from_email'] ?? $mail->Username);
         $fromName  = (string)($cfg['from_name']  ?? 'HelpDesk');
-
         $mail->setFrom($fromEmail, $fromName);
 
         $added = 0;
@@ -48,15 +50,22 @@ $mail->Port = (int)($cfg['port'] ?? 587);
                 $added++;
             }
         }
-
         if ($added === 0) {
             error_log("MAIL ERROR: destinatarios inválidos");
             return false;
         }
 
-        $mail->isHTML(false);
-        $mail->Subject = $subject;
-        $mail->Body    = $bodyText;
+        // ✅ HTML si viene $bodyHtml, si no, texto plano
+        if ($bodyHtml !== null && trim($bodyHtml) !== '') {
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body    = $bodyHtml;
+            $mail->AltBody = $bodyText; // fallback
+        } else {
+            $mail->isHTML(false);
+            $mail->Subject = $subject;
+            $mail->Body    = $bodyText;
+        }
 
         $mail->send();
         return true;

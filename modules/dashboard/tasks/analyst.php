@@ -181,12 +181,13 @@ include __DIR__ . '/../../../template/sidebar.php';
       <div class="task-actions-analyst__left"></div>
     <?php endif; ?>
 
-    <!-- CENTRO: Ver detalle (modal) usa TASK_ID -->
-    <a href="javascript:void(0)"
-       class="panel-link task-actions-analyst__mid"
-       onclick="openTaskDetailModal(<?php echo (int)$t['id']; ?>)">
-      Ver
-    </a>
+    <button type="button"
+        class="panel-link task-actions-analyst__mid"
+        data-open-task-detail
+        data-task-id="<?php echo (int)$t['id']; ?>">
+  Ver
+</button>
+
 
     <!-- DERECHA: Enterado / Finalizar -->
     <div class="task-actions-analyst__right">
@@ -226,7 +227,7 @@ include __DIR__ . '/../../../template/sidebar.php';
           <tr>
             <th>Tarea</th>
             <th>Fecha de entrega</th>
-            <?php if ($rol === 2): ?><th>Analista</th><?php endif; ?>
+            <?php if ($rol === 3): ?><th>Analista</th><?php endif; ?>
             <th>Acción</th>
           </tr>
         </thead>
@@ -235,7 +236,7 @@ include __DIR__ . '/../../../template/sidebar.php';
             <tr>
               <td><?php echo h($t['title']); ?></td>
               <td><?php echo h($t['due_at']); ?></td>
-              <?php if ($rol === 2): ?><td><?php echo h($t['analyst_name'] ?? '—'); ?></td><?php endif; ?>
+              <?php if ($rol === 3): ?><td><?php echo h($t['analyst_name'] ?? '—'); ?></td><?php endif; ?>
               <td>
                 <a class="panel-link" href="/HelpDesk_EQF/modules/dashboard/tasks/view.php?id=<?php echo (int)$t['task_id']; ?>">Ver</a>
 &nbsp;|&nbsp;
@@ -248,98 +249,7 @@ include __DIR__ . '/../../../template/sidebar.php';
     </div>
   </div>
 
-  <div class="task-modal-backdrop" id="taskDetailModal">
-  <div class="task-modal">
-    <header style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-      <h2 style="margin:0;">Detalle de tarea</h2>
-      <button type="button" onclick="closeTaskDetailModal()">×</button>
-    </header>
-
-    <div style="margin-top:12px;">
-      <h3 style="margin:0 0 6px 0;" data-title>Cargando...</h3>
-
-      <div style="display:flex; gap:18px; flex-wrap:wrap; font-size:14px; opacity:.9;">
-        <div>Entrega: <b data-due>—</b></div>
-        <div>Prioridad: <b data-priority>—</b></div>
-        <div>Estatus: <b data-status>—</b></div>
-      </div>
-
-      <p style="margin:12px 0 0 0; white-space:pre-wrap;" data-desc>—</p>
-
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px;">
-        <div class="user-info-card" style="margin:0;">
-          <h3 style="margin:0 0 8px 0;">Adjuntos admin</h3>
-          <ul style="margin:0; padding-left:18px;" data-admin-files></ul>
-        </div>
-
-        <div class="user-info-card" style="margin:0;">
-          <h3 style="margin:0 0 8px 0;">Evidencias</h3>
-          <ul style="margin:0; padding-left:18px;" data-evidence-files></ul>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-function closeTaskDetailModal(){
-  document.getElementById('taskDetailModal')?.classList.remove('is-visible');
-}
-document.getElementById('taskDetailModal')?.addEventListener('click', (e)=>{
-  if(e.target.id === 'taskDetailModal') closeTaskDetailModal();
-});
-</script>
-
-
-<script>
-async function openTaskDetailModal(taskId){
-  const modal = document.getElementById('taskDetailModal');
-  modal.classList.add('is-visible');
-
-  // placeholders
-  modal.querySelector('[data-title]').textContent = 'Cargando...';
-  modal.querySelector('[data-admin-files]').innerHTML = '<li style="opacity:.7;">Cargando…</li>';
-  modal.querySelector('[data-evidence-files]').innerHTML = '';
-
-  const r = await fetch(`/HelpDesk_EQF/modules/dashboard/tasks/ajax/task_detail.php?id=${taskId}`, {cache:'no-store'});
-  const j = await r.json();
-  if(!j.ok){ alert(j.msg || 'No se pudo cargar'); return; }
-
-  const task = j.task;
-  modal.querySelector('[data-title]').textContent = task.title || '—';
-  modal.querySelector('[data-desc]').textContent = task.description || '';
-  modal.querySelector('[data-due]').textContent = task.due_at || '—';
-  modal.querySelector('[data-priority]').textContent = task.priority_name || '—';
-  modal.querySelector('[data-status]').textContent = task.status || '—';
-
-  const adminUL = modal.querySelector('[data-admin-files]');
-  const evUL = modal.querySelector('[data-evidence-files]');
-  adminUL.innerHTML = '';
-  evUL.innerHTML = '';
-
-  const baseAdmin = '/HelpDesk_EQF/uploads/tasks/admin/';
-  const baseEv = '/HelpDesk_EQF/uploads/tasks/evidence/';
-
-  const adminFiles = j.files.filter(f => f.file_type === 'ADMIN_ATTACHMENT');
-  const evFiles    = j.files.filter(f => f.file_type === 'EVIDENCE');
-
-  adminUL.innerHTML = adminFiles.length ? '' : '<li style="opacity:.7;">Sin adjuntos.</li>';
-  evUL.innerHTML    = evFiles.length ? '' : '<li style="opacity:.7;">Sin evidencias.</li>';
-
-  adminFiles.forEach(f=>{
-    const li=document.createElement('li');
-    li.innerHTML = `<a target="_blank" rel="noopener" href="${baseAdmin}${encodeURIComponent(f.stored_name)}">${f.original_name}</a>`;
-    adminUL.appendChild(li);
-  });
-
-  evFiles.forEach(f=>{
-    const li=document.createElement('li');
-    li.innerHTML = `<a target="_blank" rel="noopener" href="${baseEv}${encodeURIComponent(f.stored_name)}">${f.original_name}</a>`;
-    evUL.appendChild(li);
-  });
-}
-
-</script>
+  
 
   <!-- DataTables (CDN rápido) -->
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
@@ -362,6 +272,38 @@ async function openTaskDetailModal(taskId){
   </script>
 <?php endif; ?>
 
+<div class="task-modal-backdrop" id="taskDetailModal">
+<div class="task-modal">
+<header style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+<h2 style="margin:0;">Detalle de tarea</h2>
+<button type="button" onclick="closeTaskDetailModal()">×</button>
+</header>
+ 
+    <div style="margin-top:12px;">
+<h3 style="margin:0 0 6px 0;" data-title>Cargando...</h3>
+ 
+      <div style="display:flex; gap:18px; flex-wrap:wrap; font-size:14px; opacity:.9;">
+<div>Entrega: <b data-due>—</b></div>
+<div>Prioridad: <b data-priority>—</b></div>
+<div>Estatus: <b data-status>—</b></div>
+</div>
+ 
+      <p style="margin:12px 0 0 0; white-space:pre-wrap;" data-desc>—</p>
+ 
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px;">
+<div class="user-info-card" style="margin:0;">
+<h3 style="margin:0 0 8px 0;">Adjuntos admin</h3>
+<ul style="margin:0; padding-left:18px;" data-admin-files></ul>
+</div>
+ 
+        <div class="user-info-card" style="margin:0;">
+<h3 style="margin:0 0 8px 0;">Evidencias</h3>
+<ul style="margin:0; padding-left:18px;" data-evidence-files></ul>
+</div>
+</div>
+</div>
+</div>
+</div>
 
 </main>
 
@@ -496,6 +438,83 @@ if (ev.event_type === 'CANCELED') {
   setInterval(poll, 4000);
   document.addEventListener('visibilitychange', () => { if(!document.hidden) poll(); });
 })();
+</script>
+<script>
+  // Delegación de evento: funciona siempre aunque cambie el DOM
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-open-task-detail]');
+    if (!btn) return;
+
+    const taskId = parseInt(btn.dataset.taskId || '0', 10);
+    if (!taskId) return;
+
+    openTaskDetailModal(taskId);
+  });
+
+  function closeTaskDetailModal(){
+    document.getElementById('taskDetailModal')?.classList.remove('is-visible');
+  }
+
+  document.getElementById('taskDetailModal')?.addEventListener('click', (e)=>{
+    if(e.target.id === 'taskDetailModal') closeTaskDetailModal();
+  });
+
+  async function openTaskDetailModal(taskId){
+    const modal = document.getElementById('taskDetailModal');
+    if (!modal) { alert('No existe el modal en el DOM'); return; }
+
+    modal.classList.add('is-visible');
+
+    // placeholders
+    modal.querySelector('[data-title]').textContent = 'Cargando...';
+    modal.querySelector('[data-admin-files]').innerHTML = '<li style="opacity:.7;">Cargando…</li>';
+    modal.querySelector('[data-evidence-files]').innerHTML = '<li style="opacity:.7;">Cargando…</li>';
+
+    let r, j;
+    try{
+      r = await fetch(`/HelpDesk_EQF/modules/dashboard/tasks/ajax/task_detail.php?id=${taskId}`, {cache:'no-store'});
+      j = await r.json();
+    } catch (err){
+      alert('No se pudo leer la respuesta del servidor (JSON). Revisa si te está redirigiendo a login o tirando HTML.');
+      return;
+    }
+
+    if(!j.ok){ alert(j.msg || 'No se pudo cargar'); return; }
+
+    const task = j.task || {};
+    modal.querySelector('[data-title]').textContent = task.title || '—';
+    modal.querySelector('[data-desc]').textContent = task.description || '';
+    modal.querySelector('[data-due]').textContent = task.due_at || '—';
+    modal.querySelector('[data-priority]').textContent = task.priority_name || '—';
+    modal.querySelector('[data-status]').textContent = task.status || '—';
+
+    const adminUL = modal.querySelector('[data-admin-files]');
+    const evUL = modal.querySelector('[data-evidence-files]');
+    adminUL.innerHTML = '';
+    evUL.innerHTML = '';
+
+    const baseAdmin = '/HelpDesk_EQF/uploads/tasks/admin/';
+    const baseEv = '/HelpDesk_EQF/uploads/tasks/evidence/';
+
+    const files = Array.isArray(j.files) ? j.files : [];
+    const adminFiles = files.filter(f => f.file_type === 'ADMIN_ATTACHMENT');
+    const evFiles    = files.filter(f => f.file_type === 'EVIDENCE');
+
+    adminUL.innerHTML = adminFiles.length ? '' : '<li style="opacity:.7;">Sin adjuntos.</li>';
+    evUL.innerHTML    = evFiles.length ? '' : '<li style="opacity:.7;">Sin evidencias.</li>';
+
+    adminFiles.forEach(f=>{
+      const li=document.createElement('li');
+      li.innerHTML = `<a target="_blank" rel="noopener" href="${baseAdmin}${encodeURIComponent(f.stored_name)}">${f.original_name}</a>`;
+      adminUL.appendChild(li);
+    });
+
+    evFiles.forEach(f=>{
+      const li=document.createElement('li');
+      li.innerHTML = `<a target="_blank" rel="noopener" href="${baseEv}${encodeURIComponent(f.stored_name)}">${f.original_name}</a>`;
+      evUL.appendChild(li);
+    });
+  }
 </script>
 
 

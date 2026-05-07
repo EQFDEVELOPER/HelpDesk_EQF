@@ -36,8 +36,14 @@ if ($rol === 4) {
 }
 
 $hasFile = isset($_FILES['adjunto']) && $_FILES['adjunto']['error'] !== UPLOAD_ERR_NO_FILE;
+$hasClipboardFiles = (
+    isset($_FILES['clipboard_files']) &&
+    isset($_FILES['clipboard_files']['name']) &&
+    is_array($_FILES['clipboard_files']['name']) &&
+    count(array_filter($_FILES['clipboard_files']['name'])) > 0
+);
 
-if ($ticketId <= 0 || ($mensaje === '' && !$hasFile)) {
+if ($ticketId <= 0 || ($mensaje === '' && !$hasFile && !$hasClipboardFiles)) {
     http_response_code(400);
     echo json_encode(['ok' => false, 'msg' => 'Datos inválidos']);
     exit;
@@ -162,14 +168,119 @@ if ($userId === $ticketUserId) {
             ];
         }
     }
+    // 3) Si hay archivos del portapapeles (clipboard_files[]), guardarlos
+$clipboardSaved = [];
+
+if ($hasClipboardFiles) {
+    $allowedExt = ['jpg','jpeg','png','webp','pdf','doc','docx','xls','xlsx','csv'];
+
+    $uploadDir = __DIR__ . '/../../uploads/ticket_messages/';
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0775, true);
+    }
+
+    $names = $_FILES['clipboard_files']['name'];
+    $tmps  = $_FILES['clipboard_files']['tmp_name'];
+    $types = $_FILES['clipboard_files']['type'];
+    $errs  = $_FILES['clipboard_files']['error'];
+
+    for ($i = 0; $i < count($names); $i++) {
+        if (($errs[$i] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) continue;
+
+        $origName = $names[$i] ?: ('clipboard_' . ($i+1));
+        $ext      = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+
+        // si viene sin extensión, intenta inferir por mime (solo imágenes)
+        $mimeType = $types[$i] ?? '';
+        if ($ext === '' && str_starts_with($mimeType, 'image/')) {
+            $ext = explode('/', $mimeType)[1] ?? 'png';
+        }
+
+        if ($ext && !in_array($ext, $allowedExt, true)) {
+            $pdo->rollBack();
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'msg' => 'Tipo de archivo no permitido (portapapeles)']);
+            exit;
+        }
+
+        $safeExt  = preg_replace('/[^a-zA-Z0-9]/', '', $ext);
+        $newName  = 't' . $ticketId . '_m' . $msgId . '_cb' . $i . '_' . uniqid() . ($safeExt ? '.' . $safeExt : '');
+        $destPath = $uploadDir . $newName;
+
+        if (move_uploaded_file($tmps[$i], $destPath)) {
+            $relPath = 'uploads/ticket_messages/' . $newName;
+
+            $stmtFile = $pdo->prepare("
+                INSERT INTO ticket_message_files (message_id, ticket_id, file_name, file_path, file_type)
+                VALUES (:message_id, :ticket_id, :file_name, :file_path, :file_type)
+            ");
+            $stmtFile->execute([
+                ':message_id' => $msgId,
+                ':ticket_id'  => $ticketId,
+                ':file_name'  => $origName,
+                ':file_path'  => $relPath,
+                ':file_type'  => $mimeType
+            ]);
+
+            $clipboardSaved[] = [
+                'name' => $origName,
+                'path' => $relPath,
+                'type' => $mimeType
+            ];
+        }
+    }
+}
+
+    
+// ===== NOTIFICACIÓN: Nuevo mensaje - Ticket # =====
+
+// destinatarios
+$targets = [];
+
+// si escribe usuario (rol 4) -> notificar analista asignado
+if ($rol === 4) {
+    if ($ticketAnalystId > 0) $targets[] = $ticketAnalystId;
+
+// si escribe analista (rol 3) -> notificar dueño del ticket
+} elseif ($rol === 3) {
+    if ($ticketUserId > 0) $targets[] = $ticketUserId;
+}
+
+// evita notificarse a sí mismo
+$targets = array_values(array_unique(array_filter($targets, fn($id) => $id > 0 && $id !== $userId)));
+
+if ($targets) {
+    $title = "Ticket #{$ticketId}";
+    $body  = "Nuevo mensaje - Ticket #{$ticketId}";
+
+    // el link ajústalo a TU detalle real si es diferente
+    $link  = "/HelpDesk_EQF/modules/dashboard/user/ticket_detail.php?id={$ticketId}";
+
+    $insN = $pdo->prepare("
+        INSERT INTO notifications (user_ide, type, title, body, link, is_read, created_at)
+        VALUES (:uid, :type, :title, :body, :link, 0, NOW())
+    ");
+
+    foreach ($targets as $toId) {
+        $insN->execute([
+            ':uid'   => $toId,
+            ':type'  => 'ticket_chat',
+            ':title' => $title,
+            ':body'  => $body,
+            ':link'  => $link,
+        ]);
+    }
+}
 
     $pdo->commit();
 
     echo json_encode([
-        'ok'   => true,
-        'id'   => $msgId,
-        'file' => $fileInfo
-    ]);
+    'ok'        => true,
+    'id'        => $msgId,
+    'file'      => $fileInfo,
+    'clipboard' => $clipboardSaved
+]);
+
     exit;
 
 } catch (Throwable $e) {

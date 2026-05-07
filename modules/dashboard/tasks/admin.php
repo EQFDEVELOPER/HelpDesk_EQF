@@ -114,7 +114,19 @@ include __DIR__ . '/../../../template/header.php'; ?>
 <?php
 include __DIR__ . '/../../../template/sidebar.php';
 ?>
+<?php if (!empty($_SESSION['flash_err'])): ?>
+  <div style="background:#ffecec;border:1px solid #ffb3b3;padding:10px;border-radius:10px;margin:10px 0;color:#a70000;">
+    <?php echo h($_SESSION['flash_err']); ?>
+  </div>
+  <?php unset($_SESSION['flash_err']); ?>
+<?php endif; ?>
 
+<?php if (!empty($_SESSION['flash_ok'])): ?>
+  <div style="background:#ecfff1;border:1px solid #b3ffd0;padding:10px;border-radius:10px;margin:10px 0;color:#0b6b2a;">
+    <?php echo h($_SESSION['flash_ok']); ?>
+  </div>
+  <?php unset($_SESSION['flash_ok']); ?>
+<?php endif; ?>
 <main class="user-main">
   <section class="user-main-inner">
 
@@ -201,21 +213,18 @@ include __DIR__ . '/../../../template/sidebar.php';
   </a>
 
   <!-- Derecha: Reasignar (al seleccionar se envía, sin botón aplicar) -->
-  <form method="POST"
-        action="/HelpDesk_EQF/modules/dashboard/tasks/reassign.php"
-        class="task-actions-admin__right"
-        style="margin:0;">
-    <input type="hidden" name="task_id" value="<?php echo (int)$t['id']; ?>">
+<form method="POST" action="/HelpDesk_EQF/modules/dashboard/tasks/reassign.php" style="margin:0;">
+  <input type="hidden" name="task_id" value="<?php echo (int)$t['id']; ?>">
 
-    <select name="new_assigned_to_user_id"
-            class="task-reassign-select"
-            onchange="if(this.value){ this.form.submit(); }">
-      <option value="">Reasignar…</option>
-      <?php foreach ($analysts as $a): ?>
-        <option value="<?php echo (int)$a['id']; ?>"><?php echo h($a['full_name']); ?></option>
-      <?php endforeach; ?>
-    </select>
-  </form>
+  <select name="new_assigned_to_user_id" onchange="if(this.value) this.form.submit();">
+    <option value="">Reasignar...</option>
+    <?php foreach ($analysts as $a): ?>
+      <option value="<?php echo (int)$a['id']; ?>">
+        <?php echo h($a['full_name'] ?? ''); ?>
+      </option>
+    <?php endforeach; ?>
+  </select>
+</form>
 
   <!-- Extremo derecho: Cancelar (texto rojo) -->
   <form method="POST"

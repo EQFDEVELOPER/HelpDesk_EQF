@@ -1,6 +1,8 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/connectionBD.php';
+require_once __DIR__ . '/remember.php';
+
 require_once __DIR__ . '/../config/audit.php';
 
 
@@ -41,23 +43,13 @@ audit_log($pdo, 'AUTH_LOGIN_OK', 'users', (int)$user['id'], [
   'area'  => $user['area'] ?? null
 ]);
 
- // "Mantener sesión iniciada"
-    if (!empty($_POST['session_open']) && $_POST['session_open'] === '1') {
-        $params = session_get_cookie_params();
+ // Mantener sesión iniciada REAL
+if (!empty($_POST['session_open']) && $_POST['session_open'] === '1') {
+    remember_create($pdo, (int)$user['id'], 30); // 30 días
+} else {
+    remember_clear_cookie();
+}
 
-        setcookie(
-            session_name(),
-            session_id(),
-            [
-                'expires'  => time() + 60 * 60 * 24 * 30, // 30 días
-                'path'     => $params['path'],
-                'domain'   => $params['domain'],
-                'secure'   => !empty($_SERVER['HTTPS']), // true si usas https
-                'httponly' => true,
-                'samesite' => 'Lax',
-            ]
-        );
-    }
 
 
     if ((int)$user['must_change_password'] === 1) {
@@ -109,7 +101,7 @@ audit_log($pdo, 'AUTH_LOGIN_OK', 'users', (int)$user['id'], [
             </div>
 
             <div class="login-title">
-                <p class="login-subtitle">BIENVENIDO A TU MESA DE AYUDA</p>
+                <p class="login-subtitle">BIENVENIDO A TU HelpDesk</p>
                 <p class="login-brand">
                     <span class="eqf-e">E</span><span class="eqf-q">Q</span><span class="eqf-f">F</span>
                 </p>
@@ -159,7 +151,14 @@ audit_log($pdo, 'AUTH_LOGIN_OK', 'users', (int)$user['id'], [
             </form>
         </div>
     </div>
-
+<div class="extra-links">
+    <a href="https://portal-interno-eqf.com"
+       target="_blank"
+       rel="noopener noreferrer"
+       class="portal-link">
+        Portal interno →
+    </a>
+</div>
 
 <div class="user-modal-backdrop" id="forgotModal" style="display:none;">
   <div class="user-modal">

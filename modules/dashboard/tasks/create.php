@@ -73,6 +73,18 @@ $stmtN->execute([
   $link
 ]);
 
+// Notificar al analista asignado
+$assignedId = (int)($_POST['$assignedTo'] ?? 0); // o de donde lo tomes
+if ($assignedId > 0) {
+  notifyUser(
+    $pdo,
+    $assignedId,
+    "Nueva tarea asignada",
+    "Tienes una nueva tarea (#{$taskId})",
+    "/HelpDesk_EQF/modules/dashboard/tasks/analyst.php"
+  );
+}
+
 
   // adjuntos admin (si vienen)
   if (!empty($_FILES['admin_files']) && !empty($_FILES['admin_files']['name'][0])) {

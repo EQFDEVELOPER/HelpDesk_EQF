@@ -839,17 +839,6 @@ if (strcasecmp(trim($userArea), 'TI') !== 0) {
 
         <hr class="eqf-hr">
 
-        <div class="eqf-grid-2">
-          <div class="eqf-field">
-            <label for="ct_inicio">Inicio (fecha y hora)</label>
-            <input type="datetime-local" id="ct_inicio" name="inicio">
-          </div>
-          <div class="eqf-field">
-            <label for="ct_fin">Fin (fecha y hora)</label>
-            <input type="datetime-local" id="ct_fin" name="fin">
-          </div>
-        </div>
-
         <div class="eqf-field">
           <label for="ct_descripcion">Descripción</label>
           <textarea
@@ -1068,17 +1057,21 @@ function closeTicketDetail(){
   detailTicketUserName = '';
 }
 </script>
-
 <script>
 /**
  * ===============================
  *  CHAT
  * ===============================
  */
+ let clipboardFiles = [];
+ 
 function openTicketChat(ticketId, tituloExtra) {
   currentTicketId = ticketId;
   lastMessageId   = 0;
+clipboardFiles = [];
+renderClipboardPreview(); // limpia preview
 
+  
   const titleEl = document.getElementById('ticketChatTitle');
   if (titleEl) titleEl.textContent = 'Chat del ticket #' + ticketId + (tituloExtra ? ' – ' + tituloExtra : '');
 
@@ -1125,6 +1118,8 @@ function closeTicketChat() {
 
   const old = document.getElementById('transfer-block');
   if (old) old.remove();
+clipboardFiles = [];
+renderClipboardPreview();
 
   currentTicketId = null;
 }
@@ -1305,6 +1300,77 @@ function fetchMessages(isInitial=false) {
     })
     .catch(err => console.error('Error obteniendo mensajes:', err));
 }
+function ensureClipboardPreviewBox() {
+  let box = document.getElementById('ticketChatPastePreview');
+  if (box) return box;
+
+  const input = document.getElementById('ticketChatInput');
+  if (!input) return null;
+
+  box = document.createElement('div');
+  box.id = 'ticketChatPastePreview';
+  box.style.display = 'none';
+  box.style.gap = '8px';
+  box.style.marginTop = '8px';
+  box.style.flexWrap = 'wrap';
+  box.style.alignItems = 'center';
+
+  input.insertAdjacentElement('afterend', box);
+  return box;
+}
+
+function renderClipboardPreview() {
+  const box = ensureClipboardPreviewBox();
+  if (!box) return;
+
+  if (!clipboardFiles.length) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+    return;
+  }
+
+  box.style.display = 'flex';
+  box.innerHTML = '';
+
+  clipboardFiles.forEach((file, idx) => {
+    const url = URL.createObjectURL(file);
+
+    const wrap = document.createElement('div');
+    wrap.style.position = 'relative';
+    wrap.style.width = '120px';
+
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.width = '120px';
+    img.style.height = '80px';
+    img.style.objectFit = 'cover';
+    img.style.borderRadius = '10px';
+    img.style.border = '1px solid #ddd';
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.textContent = '✕';
+    del.style.position = 'absolute';
+    del.style.top = '6px';
+    del.style.right = '6px';
+    del.style.border = '0';
+    del.style.borderRadius = '999px';
+    del.style.width = '26px';
+    del.style.height = '26px';
+    del.style.cursor = 'pointer';
+    del.style.background = 'rgba(0,0,0,.6)';
+    del.style.color = '#fff';
+
+    del.onclick = () => {
+      clipboardFiles.splice(idx, 1);
+      renderClipboardPreview();
+    };
+
+    wrap.appendChild(img);
+    wrap.appendChild(del);
+    box.appendChild(wrap);
+  });
+}
 
 function sendTicketMessage(ev) {
   ev.preventDefault();
@@ -1316,7 +1382,7 @@ function sendTicketMessage(ev) {
 
   const texto = input.value.trim();
   const file  = (fileInput && fileInput.files.length > 0) ? fileInput.files[0] : null;
-  if (!texto && !file) return;
+if (!texto && !file && clipboardFiles.length === 0) return;
 
   input.disabled = true;
   if (fileInput) fileInput.disabled = true;
@@ -1329,6 +1395,8 @@ function sendTicketMessage(ev) {
   formData.append('ticket_id', currentTicketId);
   formData.append('mensaje', texto);
   if (file) formData.append('adjunto', file);
+  clipboardFiles.forEach(f => formData.append('clipboard_files[]', f));
+
 
   fetch('/HelpDesk_EQF/modules/ticket/send_messages.php', { method: 'POST', body: formData })
     .then(response => {
@@ -1340,6 +1408,9 @@ function sendTicketMessage(ev) {
       }
       if (!response.ok) { alert('No se pudo enviar el mensaje'); return; }
       input.value = '';
+      clipboardFiles = [];
+renderClipboardPreview();
+
       input.focus();
       fetchMessages(false);
     })
@@ -1359,6 +1430,38 @@ function ticketChatEnterSend(e){
   }
 }
 
+document.addEventListener('paste', (e) => {
+  if (!currentTicketId) return;
+
+  const input = document.getElementById('ticketChatInput');
+  if (!input) return;
+
+  // Solo si el foco está en el input del chat
+  if (document.activeElement !== input) return;
+
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  let added = false;
+
+  for (const item of items) {
+    if (item.type && item.type.startsWith('image/')) {
+      const blob = item.getAsFile();
+      if (!blob) continue;
+
+      const ext = blob.type.split('/')[1] || 'png';
+      const file = new File([blob], `screenshot_${Date.now()}.${ext}`, { type: blob.type });
+
+      clipboardFiles.push(file);
+      added = true;
+    }
+  }
+
+  if (added) {
+    e.preventDefault();
+    renderClipboardPreview();
+  }
+});
 
 </script>
 
@@ -2011,9 +2114,6 @@ if ((window.CURRENT_USER?.area || '') !== 'TI') {
     const areaDestino = document.getElementById('ct_area_destino');
     const ticketMi    = document.getElementById('ct_ticket_mi');
 
-    const dtInicio    = document.getElementById('ct_inicio');
-    const dtFin       = document.getElementById('ct_fin');
-
     const txtDesc     = document.getElementById('ct_descripcion');
 
     if (!backdrop || !form || !msg || !btnSubmit || !emailInput || !datalist || !areaDestino || !txtDesc) {
@@ -2098,56 +2198,48 @@ if ((window.CURRENT_USER?.area || '') !== 'TI') {
       if (e.key === 'Escape' && backdrop.classList.contains('show')) closeModal();
     });
 
-    function applyTicketMiMode(on){
+  function applyTicketMiMode(on){
+  hideMsg();
+  datalist.innerHTML = '';
+  topSuggestion = '';
+  clearUser();
+  showOk(false);
+
+  if (on) {
+    // Ticket para mí -> va a TI como ticket normal
+    emailInput.value = '';
+    emailInput.disabled = true;
+
+    areaDestino.value = 'TI';
+
+    const me = (window.CURRENT_USER || {});
+    if (me.id && me.email) {
+      setUser({
+        id: me.id,
+        email: me.email,
+        number_sap: me.sap,
+        name: me.name,
+        last_name: me.last_name || '',
+        area: me.area
+      });
       hideMsg();
-      datalist.innerHTML = '';
-      topSuggestion = '';
-      clearUser();
-      showOk(false);
-
-      if (on) {
-        showEl(dtInicio, false);
-        showEl(dtFin, false);
-
-        emailInput.value = '';
-        emailInput.disabled = true;
-
-        areaDestino.value = 'TI';
-
-        if (dtInicio) dtInicio.value = '';
-        if (dtFin) dtFin.value = '';
-
-        const me = (window.CURRENT_USER || {});
-        if (me.id && me.email) {
-          setUser({
-            id: me.id,
-            email: me.email,
-            number_sap: me.sap,
-            name: me.name,
-            last_name: me.last_name || '',
-            area: me.area
-          });
-          hideMsg();
-        } else {
-          showMsg('Faltan datos del analista (CURRENT_USER) para autollenado.');
-        }
-
-        txtDesc.focus();
-      } else {
-        showEl(dtInicio, true);
-        showEl(dtFin, true);
-
-        emailInput.disabled = false;
-
-        const me = (window.CURRENT_USER || {});
-        areaDestino.value = me.area || '';
-
-        clearUser();
-        emailInput.focus();
-
-        if (dtInicio && !dtInicio.value) dtInicio.value = toDateTimeLocal(new Date());
-      }
+    } else {
+      showMsg('Faltan datos del analista (CURRENT_USER) para autollenado.');
     }
+
+    txtDesc.focus();
+  } else {
+    // Registro de asistencia a sucursal -> cerrado automático + encuesta
+    emailInput.disabled = false;
+
+    const me = (window.CURRENT_USER || {});
+    areaDestino.value = me.area || '';
+
+    clearUser();
+    emailInput.focus();
+  }
+}
+
 
     if (ticketMi) {
       ticketMi.addEventListener('change', () => applyTicketMiMode(ticketMi.checked));
@@ -2253,8 +2345,6 @@ if ((window.CURRENT_USER?.area || '') !== 'TI') {
         setUser(j.user);
         hideMsg();
 
-        if (dtInicio && !dtInicio.value) dtInicio.value = toDateTimeLocal(new Date());
-
       } catch(err) {
         console.error(err);
         clearUser();
@@ -2293,8 +2383,9 @@ if ((window.CURRENT_USER?.area || '') !== 'TI') {
   payload.append('user_id', String(foundUserId));
   payload.append('ticket_para_mi', isMine ? '1' : '0');
   payload.append('descripcion', txtDesc.value || '');
-  payload.append('inicio', isMine ? '' : (dtInicio?.value || ''));
-  payload.append('fin', isMine ? '' : (dtFin?.value || ''));
+  payload.append('inicio', '');
+  payload.append('fin', '');
+
 
   try {
     const res = await fetch('/HelpDesk_EQF/modules/ticket/create_ticket_by_analyst.php', {
@@ -2392,6 +2483,7 @@ document.addEventListener('keydown', (e) => {
 </script>
 
 <script src="/HelpDesk_EQF/assets/js/script.js?v=20251208a"></script>
+<script src="/HelpDesk_EQF/assets/js/sidebar.js?v=20251208a"></script>
 
 <script>
 
@@ -2498,6 +2590,11 @@ document.getElementById('btnSendAnnouncement')?.addEventListener('click', async 
   window.EQF_CAN_DEACTIVATE_ANN = true;
 </script>
 <script src="/HelpDesk_EQF/assets/js/announcements_live.js?v=1"></script>
+<script>
+  window.HELPDESK_USER_ID = <?= (int)($_SESSION['user_id'] ?? 0) ?>;
+</script>
+
+<script src="/HelpDesk_EQF/assets/noti_push.js?v=1"></script>
 
 </body>
 </html>

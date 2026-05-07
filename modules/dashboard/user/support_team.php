@@ -142,9 +142,9 @@ function computeUserAvailability(array $row, DateTime $now): array {
 // ============================
 $selectedArea = trim((string)($_GET['area'] ?? ''));
 
-// Áreas permitidas (solo TI, MKT, SAP)
+// Áreas permitidas (solo TI, SAP)
 // ============================
-$allowedAreas = ['TI', 'MKT', 'SAP'];
+$allowedAreas = ['TI', 'SAP']; //'MKT',
 
 $selectedArea = trim((string)($_GET['area'] ?? ''));
 if ($selectedArea !== '' && !in_array($selectedArea, $allowedAreas, true)) {
@@ -213,7 +213,7 @@ if ($selectedArea !== '') {
 }
 
 
-$sql .= " AND u.area IN ('TI','MKT','SAP') ";
+$sql .= " AND u.area IN ('TI','SAP') "; //,'MKT'
 
 $team = [];
 try {
@@ -322,3 +322,4 @@ try {
 </div>
 
 <script src="/HelpDesk_EQF/assets/js/script.js?v=<?php echo time(); ?>"></script>
+<?php include __DIR__ . '/../../../template/footer.php'; ?>

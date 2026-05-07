@@ -8,13 +8,14 @@ if (!isset($_SESSION['user_id']) || $rol !== 2) {
   header('Location: /HelpDesk_EQF/auth/login.php');
   exit;
 }
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   header('Location: /HelpDesk_EQF/modules/dashboard/tasks/admin.php');
   exit;
 }
 
 $pdo = Database::getConnection();
-$adminId = (int)$_SESSION['user_id'];
+$adminId = (int)($_SESSION['user_id'] ?? 0);
 
 $taskId = (int)($_POST['task_id'] ?? 0);
 $newAid = (int)($_POST['new_assigned_to_user_id'] ?? 0);
@@ -25,101 +26,106 @@ if ($taskId <= 0 || $newAid <= 0) {
   exit;
 }
 
-// valida que la tarea sea del admin
-$stmt = $pdo->prepare("SELECT id FROM tasks WHERE id=? AND created_by_admin_id=? LIMIT 1");
-$stmt->execute([$taskId, $adminId]);
-if (!$stmt->fetchColumn()) {
-  $_SESSION['flash_err'] = 'No autorizado.';
-  header('Location: /HelpDesk_EQF/modules/dashboard/tasks/admin.php');
-  exit;
-}
-
 $pdo->beginTransaction();
+
 try {
-  // 1) obtener assignees activos (para notificar)
-  $stmtOld = $pdo->prepare("
-    SELECT id, analyst_id, status
-    FROM task_assignees
-    WHERE task_id=?
-      AND status IN ('ASIGNADA','EN_PROCESO')
+  // 1) Validar tarea pertenece al admin + obtener asignado actual
+  $stmt = $pdo->prepare("
+    SELECT id, title, assigned_to_user_id, status
+    FROM tasks
+    WHERE id = ? AND created_by_admin_id = ?
+    LIMIT 1
   ");
-  $stmtOld->execute([$taskId]);
-  $olds = $stmtOld->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  $stmt->execute([$taskId, $adminId]);
+  $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  // 2) retirarlos
-$pdo->prepare("UPDATE tasks SET assigned_to_user_id=?, status='ASIGNADA' WHERE id=? LIMIT 1")
-    ->execute([$newAid, $taskId]);
+  if (!$task) {
+    $pdo->rollBack();
+    $_SESSION['flash_err'] = 'No autorizado.';
+    header('Location: /HelpDesk_EQF/modules/dashboard/tasks/admin.php');
+    exit;
+  }
 
-// ===== NOTIFICACIONES (REASSIGN) =====
-$link = "/HelpDesk_EQF/modules/dashboard/tasks/view.php?id=" . (int)$taskId;
+  $oldAid = (int)($task['assigned_to_user_id'] ?? 0);
+  $taskTitle = (string)($task['title'] ?? '');
+  $oldStatus = strtoupper(trim((string)($task['status'] ?? '')));
 
-// consigue título de tarea (para mensaje)
-$stmtT = $pdo->prepare("SELECT title FROM tasks WHERE id=? LIMIT 1");
-$stmtT->execute([$taskId]);
-$taskTitle = (string)($stmtT->fetchColumn() ?: '');
+  if ($oldAid === $newAid) {
+    $pdo->rollBack();
+    $_SESSION['flash_err'] = 'La tarea ya está asignada a ese analista.';
+    header('Location: /HelpDesk_EQF/modules/dashboard/tasks/admin.php');
+    exit;
+  }
 
-// prepara inserción
-$stmtN = $pdo->prepare("
-  INSERT INTO notifications (user_ide, type, title, body, link, is_read, created_at)
-  VALUES (?, 'task_reassigned', ?, ?, ?, 0, NOW())
-");
+  if ($oldStatus === 'FINALIZADA') {
+    $pdo->rollBack();
+    $_SESSION['flash_err'] = 'No se puede reasignar una tarea finalizada.';
+    header('Location: /HelpDesk_EQF/modules/dashboard/tasks/admin.php');
+    exit;
+  }
 
-// notificar a los analistas anteriores (retirados)
-foreach ($olds as $o) {
-  $oldUid = (int)($o['analyst_id'] ?? 0);
-  if ($oldUid > 0 && $oldUid !== $newAid) {
+  // 2) Actualizar asignación en tasks (FUENTE DE VERDAD)
+  $upd = $pdo->prepare("
+    UPDATE tasks
+       SET assigned_to_user_id = ?,
+           status = 'ASIGNADA'
+     WHERE id = ?
+     LIMIT 1
+  ");
+  $upd->execute([$newAid, $taskId]);
+
+  // 3) Notificaciones (si tu tabla notifications existe)
+  // Si no existe, comenta este bloque.
+  $link = "/HelpDesk_EQF/modules/dashboard/tasks/view.php?id=" . (int)$taskId;
+
+  $stmtN = $pdo->prepare("
+    INSERT INTO notifications (user_ide, type, title, body, link, is_read, created_at)
+    VALUES (?, 'task_reassigned', ?, ?, ?, 0, NOW())
+  ");
+
+  // notificar anterior
+  if ($oldAid > 0) {
     $stmtN->execute([
-      $oldUid,
+      $oldAid,
       "Tarea reasignada (#{$taskId})",
       "Te retiraron la tarea: " . ($taskTitle ?: 'Sin título'),
       $link
     ]);
   }
-}
 
-// notificar al nuevo analista
-$stmtN->execute([
-  (int)$newAid,
-  "Tarea reasignada (#{$taskId})",
-  "Se te asignó la tarea: " . ($taskTitle ?: 'Sin título'),
-  $link
-]);
+  // notificar nuevo
+  $stmtN->execute([
+    $newAid,
+    "Tarea reasignada (#{$taskId})",
+    "Se te asignó la tarea: " . ($taskTitle ?: 'Sin título'),
+    $link
+  ]);
 
-  // 3) crear o reactivar assignee para nuevo analista
-  // si ya existe RETIRADA/CANCELADA/FINALIZADA, crea uno nuevo (más limpio)
-  $stmtIns = $pdo->prepare("
-    INSERT INTO task_assignees (task_id, analyst_id, status, delivered_at)
-    VALUES (?, ?, 'ASIGNADA', NOW())
-  ");
-  $stmtIns->execute([$taskId, $newAid]);
-
-  // 4) eventos
-  foreach ($olds as $o) {
+  // 4) Evento
+  // Usa tu helper. Si tu helper se llama distinto, dime y lo ajusto.
+  if (function_exists('logTaskEvent')) {
     logTaskEvent(
       $pdo,
       $taskId,
       $adminId,
       'REASSIGNED',
-      'Tarea reasignada (retirada al analista)',
-      ['assignee_id' => (int)$o['id'], 'analyst_id' => (int)$o['analyst_id'], 'status' => (string)$o['status']],
-      ['status' => 'RETIRADA', 'new_analyst_id' => $newAid]
+      'Tarea reasignada',
+      ['old_analyst_id' => $oldAid, 'old_status' => $oldStatus],
+      ['new_analyst_id' => $newAid, 'new_status' => 'ASIGNADA']
     );
   }
 
-  logTaskEvent(
-    $pdo,
-    $taskId,
-    $adminId,
-    'REASSIGNED',
-    'Tarea reasignada a nuevo analista',
-    null,
-    ['new_analyst_id' => $newAid]
-  );
-
   $pdo->commit();
   $_SESSION['flash_ok'] = 'Tarea reasignada.';
-} catch(Throwable $e){
+} catch (Throwable $e) {
   $pdo->rollBack();
+
+  // Log real del error (temporal)
+  @file_put_contents(__DIR__ . '/reassign_error.log',
+    date('c') . " task_id={$taskId} admin_id={$adminId} -> " . $e->getMessage() . "\n",
+    FILE_APPEND
+  );
+
   $_SESSION['flash_err'] = 'Error al reasignar.';
 }
 

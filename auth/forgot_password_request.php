@@ -12,10 +12,22 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $email = trim($_POST['email'] ?? '');
+
 if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     echo json_encode(['ok' => false, 'message' => 'Correo inválido.']);
     exit;
 }
+
+$domain = strtolower(substr(strrchr($email, "@"), 1));
+
+if ($domain !== 'eqf.mx') {
+    echo json_encode([
+        'ok' => false,
+        'message' => 'Correo invalido'
+    ]);
+    exit;
+}
+
 
 $pdo = Database::getConnection();
 

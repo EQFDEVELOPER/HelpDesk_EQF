@@ -388,7 +388,7 @@ Debes responderlas antes de crear un nuevo ticket.
 
 
             <div id="tickets-section" class="user-tickets-placeholder">
-                <h3>Tus tickets</h3>
+                <h3>Mis tickets</h3>
 
                 <?php if (empty($openTickets)): ?>
                     <p>No tienes tickets activos ni encuestas pendientes por el momento.</p>
@@ -499,7 +499,7 @@ Debes responderlas antes de crear un nuevo ticket.
 </div>
 
 <div class="form-group" id="nombreJefeWrap" style="display:none;">
-  <label>Nombre del jefe de sucursal</label>
+  <label>Nombre</label>
   <input
     type="text"
     id="nombreJefeInput"
@@ -508,7 +508,7 @@ Debes responderlas antes de crear un nuevo ticket.
     maxlength="120"
   >
   <small style="opacity:.75; display:block; margin-top:6px;">
-    Este ticket se registrará a tu nombre, pero se mostrará que lo solicitas para esta persona.
+    Este ticket se registra con tu nombre, con remitente de tu sucursal.
   </small>
 </div>
 
@@ -519,7 +519,7 @@ Debes responderlas antes de crear un nuevo ticket.
                     <option value="">Selecciona un área</option>
                     <option value="TI">TI</option>
                     <option value="SAP">SAP</option>
-                    <option value="MKT">MKT</option>
+                    <!-- <option value="MKT">MKT</option> -->
                 </select>
             </div>
 
@@ -643,10 +643,13 @@ const CURRENT_USER_ID = <?php echo (int)($_SESSION['user_id'] ?? 0); ?>;
 let currentTicketId = null;
 let lastMessageId   = 0;
 let chatPollTimer   = null;
+let clipboardFiles  = [];
 
 function openTicketChat(ticketId, tituloExtra) {
     currentTicketId = ticketId;
     lastMessageId = 0;
+clipboardFiles = [];
+renderClipboardPreview();
 
     const titleEl = document.getElementById('ticketChatTitle');
     if (titleEl) {
@@ -683,6 +686,9 @@ function closeTicketChat() {
 
     if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
     currentTicketId = null;
+    clipboardFiles = [];
+renderClipboardPreview();
+
     if (typeof pollUserSnapshot === 'function') pollUserSnapshot();
 
 }
@@ -774,6 +780,77 @@ function fetchMessages() {
         })
         .catch(err => console.error('Error obteniendo mensajes:', err));
 }
+function ensureClipboardPreviewBox() {
+  let box = document.getElementById('ticketChatPastePreview');
+  if (box) return box;
+
+  const input = document.getElementById('ticketChatInput');
+  if (!input) return null;
+
+  box = document.createElement('div');
+  box.id = 'ticketChatPastePreview';
+  box.style.display = 'none';
+  box.style.gap = '8px';
+  box.style.marginTop = '8px';
+  box.style.flexWrap = 'wrap';
+  box.style.alignItems = 'center';
+
+  input.insertAdjacentElement('afterend', box);
+  return box;
+}
+
+function renderClipboardPreview() {
+  const box = ensureClipboardPreviewBox();
+  if (!box) return;
+
+  if (!clipboardFiles.length) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+    return;
+  }
+
+  box.style.display = 'flex';
+  box.innerHTML = '';
+
+  clipboardFiles.forEach((file, idx) => {
+    const url = URL.createObjectURL(file);
+
+    const wrap = document.createElement('div');
+    wrap.style.position = 'relative';
+    wrap.style.width = '120px';
+
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.width = '120px';
+    img.style.height = '80px';
+    img.style.objectFit = 'cover';
+    img.style.borderRadius = '10px';
+    img.style.border = '1px solid #ddd';
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.textContent = '✕';
+    del.style.position = 'absolute';
+    del.style.top = '6px';
+    del.style.right = '6px';
+    del.style.border = '0';
+    del.style.borderRadius = '999px';
+    del.style.width = '26px';
+    del.style.height = '26px';
+    del.style.cursor = 'pointer';
+    del.style.background = 'rgba(0,0,0,.6)';
+    del.style.color = '#fff';
+
+    del.onclick = () => {
+      clipboardFiles.splice(idx, 1);
+      renderClipboardPreview();
+    };
+
+    wrap.appendChild(img);
+    wrap.appendChild(del);
+    box.appendChild(wrap);
+  });
+}
 
 function sendTicketMessage(ev) {
     ev.preventDefault();
@@ -785,7 +862,7 @@ function sendTicketMessage(ev) {
 
     const texto = input.value.trim();
     const file = fileInput && fileInput.files.length > 0 ? fileInput.files[0] : null;
-    if (!texto && !file) return;
+if (!texto && !file && clipboardFiles.length === 0) return;
 
     input.disabled = true;
     if (fileInput) fileInput.disabled = true;
@@ -794,6 +871,8 @@ function sendTicketMessage(ev) {
     formData.append('ticket_id', currentTicketId);
     formData.append('mensaje', texto);
     if (file) formData.append('adjunto', file);
+    clipboardFiles.forEach(f => formData.append('clipboard_files[]', f));
+
 
     fetch('/HelpDesk_EQF/modules/ticket/send_messages.php', { method: 'POST', body: formData })
         .then(resp => {
@@ -803,6 +882,9 @@ function sendTicketMessage(ev) {
             if (!resp.ok) { alert('No se pudo enviar el mensaje'); return; }
 
             input.value = '';
+            clipboardFiles = [];
+renderClipboardPreview();
+
             input.focus();
             fetchMessages();
         })
@@ -821,6 +903,38 @@ function ticketChatEnterSend(e){
     sendTicketMessage(e);
   }
 }
+document.addEventListener('paste', (e) => {
+  if (!currentTicketId) return;
+
+  const input = document.getElementById('ticketChatInput');
+  if (!input) return;
+
+  // Solo si el foco está en el input del chat
+  if (document.activeElement !== input) return;
+
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  let added = false;
+
+  for (const item of items) {
+    if (item.type && item.type.startsWith('image/')) {
+      const blob = item.getAsFile();
+      if (!blob) continue;
+
+      const ext = blob.type.split('/')[1] || 'png';
+      const file = new File([blob], `screenshot_${Date.now()}.${ext}`, { type: blob.type });
+
+      clipboardFiles.push(file);
+      added = true;
+    }
+  }
+
+  if (added) {
+    e.preventDefault();
+    renderClipboardPreview();
+  }
+});
 
 </script>
 
@@ -1212,6 +1326,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <script src="/HelpDesk_EQF/assets/js/announcements_live.js?v=1"></script>
+<script>
+  window.HELPDESK_USER_ID = <?= (int)($_SESSION['user_id'] ?? 0) ?>;
+</script>
 
+<script src="/HelpDesk_EQF/assets/noti_push.js?v=1"></script>
 </body>
 </html>

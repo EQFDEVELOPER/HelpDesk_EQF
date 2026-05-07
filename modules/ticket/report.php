@@ -62,10 +62,6 @@ if (!$ticket) {
 $ticketUserId    = (int)($ticket['user_id'] ?? 0);
 $ticketAnalystId = (int)($ticket['asignado_a'] ?? 0);
 
-// Permisos:
-// - Usuario (rol 4) solo si es su ticket
-// - Analista (rol 3) solo si está asignado
-// - SA (1) y Admin (2) pueden verlo siempre
 $allowed = false;
 
 if ($rol === 4 && $userId === $ticketUserId) {

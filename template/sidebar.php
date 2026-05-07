@@ -13,11 +13,20 @@ $puedeInventario = (
     in_array($rol, [2, 3], true)   // Admin o Analista
     && $areaLower === 'ti'         // Área TI
 );
+$emailLower = strtolower(trim($userEmail));
+
+$puedeSoliEquipo = (
+    in_array($rol, [2], true)   // Admin
+);
+$puedeAuthEquipo = (
+    in_array($rol, [2], true)   // Admin 
+    && $emailLower === 'gerente-ti@eqf.mx'         // 
+);
 
 /**
  * FOTO DE PERFIL SEGÚN ROL / ÁREA / CORREO
  */
-$profileImg = '/HelpDesk_EQF/assets/img/pp/pp_corporativo.jpg';
+$profileImg = '/HelpDesk_EQF/assets/img/PP/pp_corporativo.jpg';
 
 if ($rol === 3) {
     $area  = strtolower(trim($userArea));
@@ -32,7 +41,7 @@ if ($rol === 3) {
         || str_starts_with($email, 'ti4@')
         || str_starts_with($email, 'ti5@')
         || str_starts_with($email, 'ti6@') =>
-            '/HelpDesk_EQF/assets/img/pp/pp_ti.jpg',
+            '/HelpDesk_EQF/assets/img/PP/pp_ti.jpg',
 
         $area === 'sap'
         || str_starts_with($email, 'administracion@')
@@ -40,7 +49,7 @@ if ($rol === 3) {
         || str_starts_with($email, 'administracion2@')
         || str_starts_with($email, 'administracion3@')
         || str_starts_with($email, 'administracion4@') =>
-            '/HelpDesk_EQF/assets/img/pp/pp_sap.jpg',
+            '/HelpDesk_EQF/assets/img/PP/pp_sap.jpg',
 
         $area === 'mkt'
         || str_starts_with($email, 'gerente.mercadotecnia@')
@@ -50,28 +59,28 @@ if ($rol === 3) {
         || str_starts_with($email, 'mkt3@')
         || str_starts_with($email, 'mkt4@')
         || str_starts_with($email, 'mkt5@') =>
-            '/HelpDesk_EQF/assets/img/pp/pp_mkt.jpg',
+            '/HelpDesk_EQF/assets/img/PP/pp_mkt.jpg',
 
         $area === 'diseno'
         || str_starts_with($email, 'diseno@')
         || str_starts_with($email, 'diseno1@')
         || str_starts_with($email, 'diseno2@') =>
-            '/HelpDesk_EQF/assets/img/pp/pp_diseno.jpg',
+            '/HelpDesk_EQF/assets/img/PP/pp_diseno.jpg',
 
         default =>
-            '/HelpDesk_EQF/assets/img/pp/pp_corporativo.jpg',
+            '/HelpDesk_EQF/assets/img/PP/pp_corporativo.jpg',
     };
 
 } elseif ($rol === 4) {
     $profileImg = ($userArea === 'Sucursal')
-        ? '/HelpDesk_EQF/assets/img/pp/pp_sucursal.jpg'
-        : '/HelpDesk_EQF/assets/img/pp/pp_corporativo.jpg';
+        ? '/HelpDesk_EQF/assets/img/PP/pp_sucursal.jpg'
+        : '/HelpDesk_EQF/assets/img/PP/pp_corporativo.jpg';
 
 } elseif ($rol === 2) {
-    $profileImg = '/HelpDesk_EQF/assets/img/pp/pp_admin.jpg';
+    $profileImg = '/HelpDesk_EQF/assets/img/PP/pp_admin.jpg';
 
 } elseif ($rol === 1) {
-    $profileImg = '/HelpDesk_EQF/assets/img/pp/pp_sa.jpg';
+    $profileImg = '/HelpDesk_EQF/assets/img/PP/pp_sa.jpg';
 }
 ?>
 
@@ -82,10 +91,12 @@ if ($rol === 3) {
     </button>
 
     <div class="user-sidebar-profile">
+<a href="<?php echo htmlspecialchars($profileImg, ENT_QUOTES, 'UTF-8'); ?>">
+
         <img src="<?php echo htmlspecialchars($profileImg, ENT_QUOTES, 'UTF-8'); ?>"
              alt="Foto de perfil"
              class="user-sidebar-avatar">
-
+</a>
         <div class="user-sidebar-info">
             <p class="user-sidebar-name">
                 <?php echo htmlspecialchars($userName, ENT_QUOTES, 'UTF-8'); ?>
@@ -170,6 +181,21 @@ if ($rol === 3) {
                 <span class="user-menu-text">Tareas</span>
             </button>
 
+
+            <?php if ($puedeSoliEquipo): ?>
+                <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/user/equipment.php'">
+                    <span class="user-menu-icon">🖥️</span>
+                    <span class="user-menu-text">Solicitar Equipo</span>
+                </button>
+            <?php endif; ?>
+
+            <?php if ($puedeAuthEquipo): ?>
+                <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/admin/equipment.php'">
+                    <span class="user-menu-icon">🖥️</span>
+                    <span class="user-menu-text">Autorizar Equipo</span>
+                </button>
+            <?php endif; ?>
+
             <?php if ($puedeInventario): ?>
                 <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/inventory/index.html'">
                     <span class="user-menu-icon">📦</span>
@@ -182,13 +208,10 @@ if ($rol === 3) {
                 <span class="user-menu-text">Notas</span>
             </button>
 
-            <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/admin/reports.php'">
-                <span class="user-menu-icon">📊</span>
-                <span class="user-menu-text">Reportes y KPIs</span>
-            </button>
+ 
             <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/user/documents.php'">
                 <span class="user-menu-icon">📎</span>
-                <span class="user-menu-text">Documentos importantes</span>
+                <span class="user-menu-text">Documentos</span>
             </button>
 <!-- ANALISTA -->
         <?php elseif ($rol === 3): ?>
@@ -206,11 +229,11 @@ if ($rol === 3) {
                 <span class="user-menu-icon">📣</span>
                 <span class="user-menu-text">Enviar aviso</span>
             </button>
-
-            <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/ticket/history.php'">
-                <span class="user-menu-icon">📈</span>
-                <span class="user-menu-text">KPI</span>
+<button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/user/equipment.php'">
+                <span class="user-menu-icon">🖥️</span>
+                <span class="user-menu-text">Solicitar equipo</span>
             </button>
+ 
 
             <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/shared/internal_notes.php'">
                 <span class="user-menu-icon">📝</span>
@@ -244,9 +267,9 @@ if ($rol === 3) {
                 <span class="user-menu-text">Dashboard</span>
             </button>
 
-            <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/user/equipo.php'">
+            <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/user/equipment.php'">
                 <span class="user-menu-icon">🖥️</span>
-                <span class="user-menu-text">Solicitud de equipo</span>
+                <span class="user-menu-text">Solicitar equipo</span>
             </button>
 
             <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/user/tickets.php'">
@@ -261,8 +284,14 @@ if ($rol === 3) {
 
             <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/user/documents.php'">
                 <span class="user-menu-icon">📎</span>
-                <span class="user-menu-text">Documentos importantes</span>
+                <span class="user-menu-text">Documentos </span>
             </button>
+<button type="button"
+        class="user-menu-item"
+        onclick="window.open('https://portal-interno-eqf.com', '_blank')">
+    <span class="user-menu-icon">🌐</span>
+    <span class="user-menu-text">Portal Interno</span>
+</button>
         <?php endif; ?>
     </nav>
 

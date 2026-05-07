@@ -60,6 +60,35 @@ if (!is_dir($baseDir)) {
 
 $allowed = ['pdf','png','jpg','jpeg','webp','doc','docx','xls','xlsx','ppt','pptx','txt','zip','rar'];
 
+// Avisar al admin (solo si sí se guardaron archivos)
+if (!empty($savedNames)) { // usa tu variable real (array) de guardados
+  $st = $pdo->prepare("
+    SELECT t.created_by_admin_id,
+           CONCAT(u.name,' ',u.last_name) AS analyst_name
+    FROM tasks t
+    JOIN users u ON u.id = t.assigned_to_user_id
+    WHERE t.id = ?
+    LIMIT 1
+  ");
+  $st->execute([$taskId]);
+  $row = $st->fetch(PDO::FETCH_ASSOC);
+
+  if ($row) {
+    $adminId = (int)$row['created_by_admin_id'];
+    $analystName = trim($row['analyst_name'] ?? 'Analista');
+    $count = count($savedNames);
+
+    notifyUser(
+      $pdo,
+      $adminId,
+      "Evidencia agregada",
+      "{$analystName} adjuntó {$count} evidencia(s) en la tarea (#{$taskId})",
+      "/HelpDesk_EQF/modules/dashboard/tasks/view.php?id={$taskId}"
+    );
+  }
+}
+
+
 try {
   $pdo->beginTransaction();
 

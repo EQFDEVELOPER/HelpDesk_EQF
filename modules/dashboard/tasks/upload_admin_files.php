@@ -53,3 +53,22 @@ try {
     header('Location: /HelpDesk_EQF/modules/dashboard/tasks/view.php?id=' . $taskId);
     exit;
 }
+// Notificar al analista SOLO si se guardaron archivos admin
+if (!empty($savedNames)) { // tu array real de guardados
+  $st = $pdo->prepare("SELECT assigned_to_user_id FROM tasks WHERE id = ? LIMIT 1");
+  $st->execute([$taskId]);
+  $assignedId = (int)($st->fetchColumn() ?: 0);
+
+  if ($assignedId > 0) {
+    $count = count($savedNames);
+
+    notifyUser(
+      $pdo,
+      $assignedId,
+      "Adjunto del admin",
+      "El admin adjuntó {$count} archivo(s) en la tarea (#{$taskId})",
+      "/HelpDesk_EQF/modules/dashboard/tasks/analyst.php"
+    );
+  }
+}
+
