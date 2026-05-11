@@ -548,7 +548,11 @@ Debes responderlas antes de crear un nuevo ticket.
 
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" onclick="closeTicketModal()">Cancelar</button>
-                <button type="submit" class="btn-primary">Enviar ticket</button>
+                <button type="submit"
+        class="btn-primary"
+        id="submitTicketBtn">
+    Enviar ticket
+</button>
             </div>
         </form>
     </div>
