@@ -8,10 +8,10 @@ class Database
 
     private function __construct()
     {
-        $host = 'eqfhelpdesk.com.mx';
-        $db   = 'eqfhelpd_eqf_helpdesk';
-        $user = 'eqfhelpd_ti';
-        $pass = '8[2cYiY5g)c4OD';
+        $host = 'localhost';
+        $db   = 'eqf_helpdesk';
+        $user = 'root';
+        $pass = '';
         $charset = 'utf8mb4';
 
         $dsn = "mysql:host={$host};dbname={$db};charset={$charset}";
@@ -32,7 +32,7 @@ class Database
             $this->connection->exec("SET NAMES utf8mb4");
 
         } catch (PDOException $e) {
-            die('Error de conexi¨®n a la base de datos: ' . $e->getMessage());
+            die('Error de conexiï¿½ï¿½n a la base de datos: ' . $e->getMessage());
         }
     }
 

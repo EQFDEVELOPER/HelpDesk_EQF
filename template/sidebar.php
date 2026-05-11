@@ -22,6 +22,17 @@ $puedeAuthEquipo = (
     in_array($rol, [2], true)   // Admin 
     && $emailLower === 'gerente-ti@eqf.mx'         // 
 );
+//---------------------
+// MANTENIMIENTOOOOO
+//---------------------
+$puedeSoliMantenimiento = (
+    in_array($rol, [4,3], true)   // Admin
+);
+$puedeAuthMantenimeinto = (
+    in_array($rol, [4], true)   // Admin 
+    && $emailLower === 'proyectos@eqf.mx'         // 
+);
+
 
 /**
  * FOTO DE PERFIL SEGÚN ROL / ÁREA / CORREO
@@ -33,6 +44,8 @@ if ($rol === 3) {
     $email = strtolower(trim($userEmail));
 
     $profileImg = match (true) {
+        
+
         $area === 'ti'
         || str_starts_with($email, 'ti@')
         || str_starts_with($email, 'ti1@')
@@ -72,16 +85,30 @@ if ($rol === 3) {
     };
 
 } elseif ($rol === 4) {
-    $profileImg = ($userArea === 'Sucursal')
-        ? '/HelpDesk_EQF/assets/img/PP/pp_sucursal.jpg'
-        : '/HelpDesk_EQF/assets/img/PP/pp_corporativo.jpg';
+
+    $email = strtolower(trim($userEmail));
+
+    $profileImg = match (true) {
+
+        $email === 'proyectos@eqf.mx' =>
+            '/HelpDesk_EQF/assets/img/PP/pp_arqui.png',
+
+        $userArea === 'Sucursal' =>
+            '/HelpDesk_EQF/assets/img/PP/pp_sucursal.jpg',
+
+        default =>
+            '/HelpDesk_EQF/assets/img/PP/pp_corporativo.jpg',
+    };
 
 } elseif ($rol === 2) {
+
     $profileImg = '/HelpDesk_EQF/assets/img/PP/pp_admin.jpg';
 
 } elseif ($rol === 1) {
+
     $profileImg = '/HelpDesk_EQF/assets/img/PP/pp_sa.jpg';
 }
+
 ?>
 
 <aside class="user-sidebar" id="appSidebar" aria-label="Sidebar">
@@ -271,6 +298,20 @@ if ($rol === 3) {
                 <span class="user-menu-icon">🖥️</span>
                 <span class="user-menu-text">Solicitar equipo</span>
             </button>
+
+                        <?php if ($puedeSoliMantenimiento): ?>
+                <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/user/maintenance_user.php'">
+                    <span class="user-menu-icon">🛠️</span>
+                    <span class="user-menu-text">Solicitar Mantenimiento</span>
+                </button>
+            <?php endif; ?>
+
+            <?php if ($puedeAuthMantenimeinto): ?>
+                <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/user/maintenance_analyst.php'">
+                    <span class="user-menu-icon">🛠️</span>
+                    <span class="user-menu-text">Mantenimientos</span>
+                </button>
+            <?php endif; ?>
 
             <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/user/tickets.php'">
                 <span class="user-menu-icon">📄</span>
