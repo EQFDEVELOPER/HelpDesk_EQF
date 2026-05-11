@@ -639,7 +639,43 @@ function ticketFormEnterSubmit(e){
 <script>
 const CURRENT_USER_ID = <?php echo (int)($_SESSION['user_id'] ?? 0); ?>;
 </script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
 
+  const form = document.getElementById('ticketForm');
+  const submitBtn = document.getElementById('submitTicketBtn');
+
+  if (!form || !submitBtn) return;
+
+  let sending = false;
+
+  form.addEventListener('submit', function(e) {
+
+    // evita doble envío
+    if (sending) {
+      e.preventDefault();
+      return false;
+    }
+
+    // valida antes de bloquear
+    if (!form.checkValidity()) {
+      return;
+    }
+
+    sending = true;
+
+    // bloquear botón
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enviando...';
+    submitBtn.style.opacity = '.7';
+    submitBtn.style.cursor = 'not-allowed';
+
+    // opcional: bloquear todo el form
+    form.classList.add('is-submitting');
+  });
+
+});
+</script>
 <script>
 /* ===========================
    CHAT
