@@ -493,26 +493,6 @@ Debes responderlas antes de crear un nuevo ticket.
             <input type="hidden" name="sap" id="sapValue" value="<?php echo htmlspecialchars($userSap, ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" name="nombre" id="nombreValue" value="<?php echo htmlspecialchars($userName, ENT_QUOTES, 'UTF-8'); ?>">
 
-            <div class="form-group checkbox-container">
-  <input type="checkbox" id="noJefe" name="no_jefe" value="1">
-  <label for="noJefe">No soy jefe de sucursal</label>
-</div>
-
-<div class="form-group" id="nombreJefeWrap" style="display:none;">
-  <label>Nombre</label>
-  <input
-    type="text"
-    id="nombreJefeInput"
-    name="nombre_jefe"
-    placeholder="Escribe el nombre completo"
-    maxlength="120"
-  >
-  <small style="opacity:.75; display:block; margin-top:6px;">
-    Este ticket se registra con tu nombre, con remitente de tu sucursal.
-  </small>
-</div>
-
-
             <div class="form-group">
                 <label>Área de soporte</label>
                 <select id="areaSoporte" name="area_soporte" required>

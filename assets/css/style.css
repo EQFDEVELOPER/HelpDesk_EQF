@@ -3857,3 +3857,115 @@ MANTENIMIENTO
   align-items: center;
   margin-bottom: 20px;
 }
+
+/* =========================
+   STATUS BADGES
+========================= */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* Pendiente */
+.status-pendiente {
+  background: #fff7e6;
+  color: #b7791f;
+}
+
+.status-pendiente .status-dot {
+  background: #f6ad55;
+}
+
+/* En proceso */
+.status-proceso {
+  background: #ebf8ff;
+  color: #2b6cb0;
+}
+
+.status-proceso .status-dot {
+  background: #4299e1;
+}
+
+/* Finalizado */
+.status-finalizado {
+  background: #f0fff4;
+  color: #2f855a;
+}
+
+.status-finalizado .status-dot {
+  background: #48bb78;
+}
+
+/* Cancelado */
+.status-cancelado {
+  background: #f7fafc;
+  color: #4a5568;
+}
+
+.status-cancelado .status-dot {
+  background: #718096;
+}
+
+/* =========================
+   ACTION LINKS
+========================= */
+
+.action-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: .2s;
+  padding: 0;
+}
+
+.action-link:hover {
+  opacity: .7;
+}
+
+/* Colores */
+.action-process {
+  color: var(--eqf-yellow);
+}
+
+.action-pendiente {
+  color: var(--eqf-combined-light);
+}
+
+.action-finish {
+  color: var(--eqf-blue);
+}
+
+.action-cancel {
+  color: var(--eqf-red);
+}
+
+.status-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 14px !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.action-link {
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+}
