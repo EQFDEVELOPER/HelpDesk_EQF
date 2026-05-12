@@ -5,37 +5,43 @@ Array
             [name] => Array
                 (
                     [0] => Brandon act.png
-                    [1] => Fondos de pantalla 2_1-2.jpg
+                    [1] => fondo.png
+                    [2] => Fondos de pantalla 2_1-2.jpg
                 )
 
             [full_path] => Array
                 (
                     [0] => Brandon act.png
-                    [1] => Fondos de pantalla 2_1-2.jpg
+                    [1] => fondo.png
+                    [2] => Fondos de pantalla 2_1-2.jpg
                 )
 
             [type] => Array
                 (
                     [0] => image/png
-                    [1] => image/jpeg
+                    [1] => image/png
+                    [2] => image/jpeg
                 )
 
             [tmp_name] => Array
                 (
-                    [0] => C:\Windows\Temp\php1B69.tmp
-                    [1] => C:\Windows\Temp\php1B6A.tmp
+                    [0] => C:\Windows\Temp\php7E3F.tmp
+                    [1] => C:\Windows\Temp\php7E40.tmp
+                    [2] => C:\Windows\Temp\php7E51.tmp
                 )
 
             [error] => Array
                 (
                     [0] => 0
                     [1] => 0
+                    [2] => 0
                 )
 
             [size] => Array
                 (
                     [0] => 68968
-                    [1] => 803299
+                    [1] => 637361
+                    [2] => 803299
                 )
 
         )

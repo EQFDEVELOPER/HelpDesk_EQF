@@ -114,6 +114,26 @@ $files = $stmtFiles->fetchAll(PDO::FETCH_ASSOC);
         <div class="task-desc">
             <?php echo nl2br(htmlspecialchars($r['description'])); ?>
         </div>
+        <div style="margin-top:10px;">
+
+    <a
+        href="/HelpDesk_EQF/modules/dashboard/maintenance/maintenance_generate_pdf.php?id=<?php echo (int)$r['id']; ?>"
+        target="_blank"
+        class="task-link-blue"
+    >
+        Solicitud
+    </a>
+
+    &nbsp;|&nbsp;
+
+    <a
+        href="#"
+        class="task-link-blue"
+    >
+        Reporte
+    </a>
+
+</div>
 <?php if (!empty($files)): ?>
 
     <div class="panel-divider"></div>
