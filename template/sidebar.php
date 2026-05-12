@@ -26,10 +26,11 @@ $puedeAuthEquipo = (
 // MANTENIMIENTOOOOO
 //---------------------
 $puedeSoliMantenimiento = (
-    in_array($rol, [4,3], true)   // Admin
+    in_array($rol, [4,3], true)   // 
+    && $emailLower !== 'proyectos@eqf.mx'
 );
 $puedeAuthMantenimeinto = (
-    in_array($rol, [4], true)   // Admin 
+    in_array($rol, [4], true)   //  
     && $emailLower === 'proyectos@eqf.mx'         // 
 );
 
