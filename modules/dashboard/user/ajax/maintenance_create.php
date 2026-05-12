@@ -175,6 +175,14 @@ try {
    GUARDAR ARCHIVOS
 ===================================================== */
 
+
+
+file_put_contents(
+    __DIR__ . '/debug_files.txt',
+    print_r($_FILES, true)
+);
+
+//---------------------------------
 if (!empty($_FILES['files']['name'][0])) {
 
     $uploadDir = __DIR__ . '/../../../../uploads/maintenance/';

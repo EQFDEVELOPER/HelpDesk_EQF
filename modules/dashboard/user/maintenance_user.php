@@ -296,14 +296,13 @@ $email = trim((string)($me['email'] ?? ''));
 
               <input type="file"
                      id="maintenanceFiles"
-                     name="files[]"
                      multiple
                      accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"
                      capture="environment"
                      hidden>
 
               <span>
-                📎 Adjuntar archivos o tomar foto
+                Adjuntar archivos o tomar foto
               </span>
 
             </label>
