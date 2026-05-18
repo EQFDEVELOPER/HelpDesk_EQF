@@ -21,18 +21,51 @@ if (!isset($_SESSION['user_id'])) {
 
 try {
 
-    $sql = "
-        SELECT
-            id,
-            requester_email,
-            title,
-            description,
-            status
-        FROM maintenance_requests
-        ORDER BY id DESC
-    ";
+    $userEmail = strtolower(trim($_SESSION['user_email'] ?? ''));
 
-    $stmt = $conn->prepare($sql);
+    // Correos de proyectos
+    $allowedEmails = [
+        'proyectos@eqf.mx',
+        'aux.proyectos@eqf.mx'
+    ];
+
+    // PROYECTOS VE TODO
+    if (in_array($userEmail, $allowedEmails, true)) {
+
+        $sql = "
+            SELECT
+                id,
+                requester_email,
+                title,
+                description,
+                status,
+                created_at
+            FROM maintenance_requests
+            ORDER BY id DESC
+        ";
+
+        $stmt = $conn->prepare($sql);
+
+    } else {
+
+        // USUARIO NORMAL → SOLO SUS SOLICITUDES
+        $sql = "
+            SELECT
+                id,
+                requester_email,
+                title,
+                description,
+                status,
+                created_at
+            FROM maintenance_requests
+            WHERE LOWER(requester_email) = :email
+            ORDER BY id DESC
+        ";
+
+        $stmt = $conn->prepare($sql);
+
+        $stmt->bindValue(':email', $userEmail);
+    }
 
     $stmt->execute();
 

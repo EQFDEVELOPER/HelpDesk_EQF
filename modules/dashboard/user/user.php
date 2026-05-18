@@ -509,7 +509,35 @@ Debes responderlas antes de crear un nuevo ticket.
                     <option value="">Selecciona primero un área</option>
                 </select>
             </div>
+<?php
+$catalogProblems = [];
 
+try {
+    $stmtCatalog = $pdo->prepare("
+        SELECT area_code, code, label
+        FROM catalog_problems
+        WHERE active = 1
+        ORDER BY area_code ASC, sort_order ASC, label ASC
+    ");
+    $stmtCatalog->execute();
+
+    foreach ($stmtCatalog->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $area = strtoupper(trim($row['area_code']));
+
+        if (!isset($catalogProblems[$area])) {
+            $catalogProblems[$area] = [];
+        }
+
+        $catalogProblems[$area][] = [
+            'code'  => $row['code'],
+            'label' => $row['label']
+        ];
+    }
+
+} catch (Throwable $e) {
+    error_log('Error catalog_problems: ' . $e->getMessage());
+}
+?>
             <input type="hidden" name="prioridad" id="prioridadValue" value="media">
 
             <div class="form-group form-group-full">
@@ -1291,8 +1319,47 @@ function pollUserUnread(){
 }
 setInterval(pollUserUnread, 7000);
 pollUserUnread();
+</script>
 
+<script>
+const PROBLEMS_BY_AREA = <?php echo json_encode($catalogProblems, JSON_UNESCAPED_UNICODE); ?>;
 
+document.addEventListener('DOMContentLoaded', () => {
+
+    const areaSelect = document.getElementById('areaSoporte');
+    const problemaSelect = document.getElementById('problemaSelect');
+
+    function loadProblems(area) {
+
+        problemaSelect.innerHTML = '';
+
+        if (!area || !PROBLEMS_BY_AREA[area]) {
+
+            problemaSelect.innerHTML =
+                '<option value="">No hay problemas disponibles</option>';
+
+            return;
+        }
+
+        problemaSelect.innerHTML =
+            '<option value="">Selecciona un problema</option>';
+
+        PROBLEMS_BY_AREA[area].forEach(problem => {
+
+            const option = document.createElement('option');
+
+            option.value = problem.code;
+            option.textContent = problem.label;
+
+            problemaSelect.appendChild(option);
+        });
+    }
+
+    areaSelect.addEventListener('change', function () {
+        loadProblems(this.value);
+    });
+
+});
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {

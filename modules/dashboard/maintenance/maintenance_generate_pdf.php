@@ -1,30 +1,30 @@
 <?php
-
+ 
 session_start();
 ini_set('memory_limit', '512M');
 set_time_limit(300);
 require_once __DIR__ . '/../../../config/connectionBD.php';
 require_once __DIR__ . '/../../../vendor/autoload.php';
-
+ 
 use Dompdf\Dompdf;
 use Dompdf\Options;
-
+ 
 if (!isset($_SESSION['user_id'])) {
     die('No autorizado');
 }
-
+ 
 $conn = Database::getConnection();
-
+ 
 $id = (int)($_GET['id'] ?? 0);
-
+ 
 if ($id <= 0) {
     die('ID inválido');
 }
-
+ 
 /* =========================
    SOLICITUD
 ========================= */
-
+ 
 $stmt = $conn->prepare("
     SELECT
         mr.*,
@@ -35,56 +35,58 @@ $stmt = $conn->prepare("
     WHERE mr.id = ?
     LIMIT 1
 ");
-
+ 
 $stmt->execute([$id]);
-
+ 
 $request = $stmt->fetch(PDO::FETCH_ASSOC);
-
+ 
 if (!$request) {
     die('Solicitud no encontrada');
 }
-
+ 
 /* =========================
    ARCHIVOS
 ========================= */
-
+ 
 $stmtFiles = $conn->prepare("
     SELECT *
     FROM maintenance_files
     WHERE maintenance_request_id = ?
     ORDER BY id ASC
 ");
-
+ 
 $stmtFiles->execute([$id]);
-
+ 
 $files = $stmtFiles->fetchAll(PDO::FETCH_ASSOC);
-
+ 
 /* =========================
    DATOS
 ========================= */
-
+ 
 $email = $request['requester_email'] ?? '';
-
+ 
 $sucursal = strtoupper(explode('@', $email)[0]);
-
+ 
 $fecha = date(
     'd/m/Y',
     strtotime($request['created_at'])
 );
-
+ 
 $descripcion = nl2br(
     htmlspecialchars($request['description'])
 );
-
+ 
 $solicitante = htmlspecialchars(
     $request['full_name'] ?? 'N/A'
 );
-
+ 
 /* =========================
    IMAGENES
 ========================= */
-
+ 
 $imagesHtml = '';
+
+$counter = 0;
 
 foreach ($files as $file) {
 
@@ -104,286 +106,430 @@ foreach ($files as $file) {
         continue;
     }
 
-    $absolutePath = $_SERVER['DOCUMENT_ROOT']
-    . $path;
+    $absolutePath = $_SERVER['DOCUMENT_ROOT'] . $path;
 
     if (!file_exists($absolutePath)) {
         continue;
     }
+
     $imageData = base64_encode(
         file_get_contents($absolutePath)
     );
 
     $src = 'data:image/' . $ext . ';base64,' . $imageData;
 
-    $imagesHtml .= '
-        <div class="image-box">
-            <img src="' . $src . '">
+    if ($counter % 4 === 0) {
+        $imagesHtml .= '<tr>';
+    }
 
-            <div class="img-name">
-                ' . htmlspecialchars($file['file_name']) . '
+    $imagesHtml .= '
+        <td>
+            <div class="image-wrapper">
+                <img src="' . $src . '">
             </div>
-        </div>
+        </td>
     ';
+
+    $counter++;
+
+    if ($counter % 4 === 0) {
+        $imagesHtml .= '</tr>';
+    }
 }
 
+if ($counter % 4 !== 0) {
+
+    while ($counter % 4 !== 0) {
+
+        $imagesHtml .= '<td></td>';
+
+        $counter++;
+    }
+
+    $imagesHtml .= '</tr>';
+}
+ 
 /* =========================
-   LOGO EQF
+   HEADER / FOOTER IMAGES
 ========================= */
-
-$logoPath = $_SERVER['DOCUMENT_ROOT']
-    . '/HelpDesk_EQF/assets/img/Logo-334x98.png';
-
-$base64Logo = '';
-
-if (file_exists($logoPath)) {
-
-    $logoType = pathinfo($logoPath, PATHINFO_EXTENSION);
-
-    $logoData = base64_encode(
-        file_get_contents($logoPath)
+ 
+$headerPath = $_SERVER['DOCUMENT_ROOT']
+    . '/HelpDesk_EQF/assets/img/header_mantenimiento.png';
+ 
+$footerPath = $_SERVER['DOCUMENT_ROOT']
+    . '/HelpDesk_EQF/assets/img/footer_mantenimiento.png';
+ 
+$base64Header = '';
+$base64Footer = '';
+ 
+if (file_exists($headerPath)) {
+ 
+    $headerType = pathinfo($headerPath, PATHINFO_EXTENSION);
+ 
+    $headerData = base64_encode(
+        file_get_contents($headerPath)
     );
-
-    $base64Logo =
-        'data:image/' . $logoType . ';base64,' . $logoData;
+ 
+    $base64Header =
+        'data:image/' . $headerType . ';base64,' . $headerData;
+}
+ 
+if (file_exists($footerPath)) {
+ 
+    $footerType = pathinfo($footerPath, PATHINFO_EXTENSION);
+ 
+    $footerData = base64_encode(
+        file_get_contents($footerPath)
+    );
+ 
+    $base64Footer =
+        'data:image/' . $footerType . ';base64,' . $footerData;
 }
 /* =========================
    HTML PDF
 ========================= */
-
+ 
+$eqfBlue = '#002b5c';
+$eqfRed  = '#cf1020';
+$lightBlue = '#9BC2E6';
+ 
 $html = '
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        font-size: 11px;
-        color: #333;
-        margin: 0;
-        padding: 0;
-    }
+* {
+    box-sizing: border-box;
+}
+ 
 
-    /* Encabezado Estilo Imagen */
-    .header-container {
-        width: 100%;
-        height: 80px;
-        position: relative;
-        border-bottom: 2px solid #002b5c;
-        margin-bottom: 10px;
-    }
 
-    .logo-area {
-        float: left;
-        width: 40%;
-        padding-top: 10px;
-    }
+/* ===== CONFIGURACIÓN DE PÁGINA ===== */
+@page {
+    size: letter;
+    margin-top: 1cm;
+    margin-right: 1.8cm;
+    margin-bottom: 4.2cm;
+    margin-left: 1.8cm;
+}
 
-    .logo-area img {
-        height: 60px;
-    }
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
 
-    .title-area {
-    float: right;
-    width: 60%;
-    background-color: #002b5c;
-    color: white;
-    height: 60px;
-    line-height: 60px;
+body {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    color: #000;
+}
+
+/* ===== FOOTER IMAGE ===== */
+.pdf-footer {
+    position: fixed;
+    bottom: -0.8cm;
+    left: 0;
+    right: 0;
+    height: 55px;
+}
+
+.pdf-footer img {
+    width: 100%;
+    display: block;
+}
+
+/* ===== SIGNATURES ===== */
+
+.signatures {
+    width: 100%;
+    margin-top: 45px;
+    border-collapse: collapse;
+}
+
+.signatures td {
+    width: 50%;
     text-align: center;
-    font-size: 18px;
+    vertical-align: top;
+    padding: 0 15px;
+}
+
+.sign-line {
+    border-top: 1px solid #000;
+    margin-bottom: 4px;
+    height: 1px;
+}
+
+.sign-title {
+    font-size: 10px;
     font-weight: bold;
 }
 
-    /* Tabla de información */
-    .info-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 10px;
-    }
-
-    .info-table td {
-        padding: 5px;
-        vertical-align: bottom;
-        text-transform: uppercase;
-    }
-
-    .line-data {
-        border-bottom: 1px solid #333;
-        display: inline-block;
-        width: 70%;
-        padding-left: 5px;
-    }
-
-    /* Secciones Azules */
-    .section-title {
-        background: #002b5c;
-        color: white;
-        padding: 6px 10px;
-        font-weight: bold;
-        font-size: 11px;
-        margin-top: 5px;
-    }
-
-    .content-box {
-        border: 1px solid #ccc;
-        padding: 10px;
-        min-height: 40px;
-        line-height: 1.4;
-    }
-
-    /* Grid de Imágenes */
-    .images-grid {
-        width: 100%;
-        margin-top: 10px;
-    }
-
-    .image-box {
-        width: 18%; /* 5 columnas aprox */
-        border: 1px solid #ccc;
-        padding: 3px;
-        margin: 0.5%;
-        display: inline-block;
-        vertical-align: top;
-        text-align: center;
-    }
-
-    .image-box img {
-    width: 100%;
-    height: auto;
-    max-height: 100px;
+.sign-sub {
+    font-size: 9px;
+    color: #333;
 }
 
-    .img-name {
-        margin-top: 3px;
-        font-size: 9px;
-        color: #555;
+/* ===== MAIN BOX ===== */
+.main-box {
+    border: 1.5px solid #000;
+    margin-top: 0.3cm;
+    margin-bottom: 10px;
+    width: 100%;
+}
+
+/* ===== HEADER BOX ===== */
+.header-box {
+    width: 100%;
+    border-bottom: 2px solid #000;
+}
+
+.header-box img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+ 
+ 
+/* ===== SECTION BOXES ===== */
+.section-box {
+    border-top: 1px solid #000000ff;
+    border-bottom: 1px solid #000000ff;
+    border-left: 0;
+    border-right: 0;
+    margin: 0;
+    page-break-inside: avoid;
     }
 
-    /* Firmas */
-    .signatures {
-        margin-top: 50px;
-        width: 100%;
-        text-align: center;
-    }
+.section-box .section-header {
+    background: ' . $lightBlue . ';
+    font-weight: bold;
+    font-size: 12px;
+    padding: 5px 8px;
+    border-bottom: 1px solid #333;
+}
 
-    .sign-box {
-        width: 45%;
-        display: inline-block;
-        text-align: center;
-    }
+.section-box .section-body {
+    padding: 7px;
+    min-height: 30px;
+    line-height: 1.4;
+    font-size: 11px;
+}
 
-    .sign-line {
-        width: 80%;
-        margin: 0 auto;
-        border-top: 1px solid #000;
-        margin-bottom: 5px;
-    }
 
-    .footer-note {
-        margin-top: 30px;
-        text-align: center;
-        font-style: italic;
-        color: #777;
-        font-size: 10px;
-    }
+/* ===== INFO BOX ===== */
+.info-box {
+    padding: 12px 14px;
+    border-bottom: 1px solid #000;
+}
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
 
-    .clearfix::after {
-        content: "";
-        clear: both;
-        display: table;
-    }
+.info-table td {
+    vertical-align: top;
+    padding-bottom: 12px;
+}
+
+.info-label {
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.info-line {
+    border-bottom: 1px solid #000;
+    padding-left: 5px;
+    text-transform: uppercase;
+    height: 18px;
+}
+
+.images-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    page-break-inside: auto;
+
+}
+
+.images-table td {
+    width: 25%;
+    padding: 4px;
+    vertical-align: top;
+    text-align: center;
+}
+.images-table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+}
+.image-wrapper {
+    border: 1px solid #999;
+    padding: 3px;
+}
+
+.image-wrapper img {
+    width: 100%;
+    height: auto;
+    max-height: 140px;
+}
+
+
+
+
+/* ===== FOOTER ===== */
+.footer-legend {
+    margin-top: 25px;
+    text-align: center;
+    font-size: 7.5px;
+    color: #444;
+    padding: 0 10px;
+}
+
+.footer-line {
+    width: 100%;
+    margin-top: 5px;
+}
+
+.footer-line svg {
+    width: 100%;
+    height: 10px;
+    display: block;
+}
 
 </style>
 </head>
 <body>
 
-<div class="header-container clearfix">
-    <div class="logo-area">
-        <img src="' . $base64Logo . '" alt="Logo">
+<!-- FOOTER (Se repetirá abajo en todas las páginas) -->
+<div class="pdf-footer">
+    <img src="' . $base64Footer . '">
+</div>
+
+
+
+<div class="main-box">
+    <!-- HEADER BOX -->
+    <div class="header-box">
+        <img src="' . $base64Header . '">
     </div>
-    <div class="title-area">
-        SOLICITUD DE MANTENIMIENTO
+
+    <!-- ===== INFO BOX ===== -->
+    
+<div class="info-box">
+
+    <table class="info-table">
+        <tr>
+            <td width="65%">
+                <span class="info-label">
+                    Jefe de Sucursal:
+                </span>
+
+                <div class="info-line">
+                    ' . $solicitante . '
+                </div>
+            </td>
+
+            <td width="35%">
+                <span class="info-label">
+                    Fecha de solicitud:
+                </span>
+
+                <div class="info-line" style="text-align:center;">
+                    ' . $fecha . '
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <td colspan="2">
+                <span class="info-label">
+                    Sucursal:
+                </span>
+
+                <div class="info-line">
+                    ' . $sucursal . '
+                </div>
+            </td>
+        </tr>
+    </table>
+    </div>
+<!-- ===== DESCRIPCIÓN ===== -->
+<div class="section-box">
+    <div class="section-header">Descripción de la solicitud de mantenimiento</div>
+    <div class="section-body">' . $descripcion . '</div>
+</div>
+
+<!-- ===== OBSERVACIONES ===== -->
+<div class="section-box">
+    <div class="section-header">Observaciones</div>
+    <div class="section-body">
+
+        <table class="images-table">
+            ' . $imagesHtml . '
+        </table>
+
     </div>
 </div>
 
-<table class="info-table">
+<!-- ===== NO AUTORIZACIÓN ===== -->
+<div class="section-box">
+    <div class="section-header">
+        En caso de no autorizarse el mantenimiento describir el ¿Por qué?
+    </div>
+
+    <div class="section-body" style="height:35px;"></div>
+</div>
+<!-- ===== FIRMAS ===== -->
+
+<table class="signatures">
     <tr>
-        <td width="60%">
-            <strong>JEFE DE SUCURSAL:</strong> 
-            <span class="line-data">' . $solicitante . '</span>
+
+        <td>
+            <div class="sign-line"></div>
+
+            <div class="sign-title">
+                Solicita
+            </div>
+
+            <div class="sign-sub">
+                (Fecha y firma)
+            </div>
         </td>
-        <td width="40%">
-            <strong>FECHA DE SOLICITUD:</strong> 
-            <span class="line-data">' . $fecha . '</span>
+
+        <td>
+            <div class="sign-line"></div>
+
+            <div class="sign-title">
+                Revisó y Autorizó
+            </div>
+
+            <div class="sign-sub">
+                (Nombre, fecha y firma)
+            </div>
         </td>
-    </tr>
-    <tr>
-        <td colspan="2">
-            <strong>SUCURSAL:</strong> 
-            <span class="line-data" style="width: 82%;">' . $sucursal . '</span>
-        </td>
+
     </tr>
 </table>
 
-<div class="section-title">DESCRIPCIÓN DE LA SOLICITUD DE MANTENIMIENTO</div>
-<div class="content-box">
-    ' . nl2br($descripcion) . '
 </div>
-
-<div class="section-title">OBSERVACIONES</div>
-<div class="content-box">
-    <!-- Aquí puedes poner la variable de observaciones si existe -->
-    Anexo evidencia fotográfica.
-</div>
-
-<div class="section-title">EN CASO DE NO AUTORIZARSE EL MANTENIMIENTO DESCRIBIR EL ¿POR QUÉ?</div>
-<div class="content-box" style="height: 40px;"></div>
-
-<div class="section-title">EVIDENCIA FOTOGRÁFICA (ARCHIVOS ADJUNTOS)</div>
-<div class="images-grid">
-    ' . $imagesHtml . '
-</div>
-
-<div class="signatures clearfix">
-    <div class="sign-box">
-        <div class="sign-line"></div>
-        <strong>Solicita</strong><br>
-        (Fecha y firma)
-    </div>
-
-    <div class="sign-box">
-        <div class="sign-line"></div>
-        <strong>Revisó y Autorizó</strong><br>
-        (Nombre, fecha y firma)
-    </div>
-</div>
-
-<div class="footer-note">
-    Solicitud generada automáticamente por el sistema HelpDesk R 2026
-</div>
-
 </body>
 </html>
 ';
-
+ 
 /* =========================
    DOMPDF
 ========================= */
-
+ 
 $options = new Options();
-
 $options->set('isRemoteEnabled', true);
-
+ 
 $dompdf = new Dompdf($options);
-
 $dompdf->loadHtml($html);
-
-$dompdf->setPaper('A4', 'portrait');
-
+$dompdf->setPaper('letter', 'portrait');
 $dompdf->render();
-
+ 
 $dompdf->stream(
     'solicitud_mantenimiento_' . $id . '.pdf',
     ['Attachment' => false]
