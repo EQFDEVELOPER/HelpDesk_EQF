@@ -204,40 +204,36 @@ $html = '
 }
  
 
-
 /* ===== CONFIGURACIÓN DE PÁGINA ===== */
 @page {
-    size: letter;
-    margin-top: 1cm;
-    margin-right: 1.8cm;
-    margin-bottom: 4.2cm;
-    margin-left: 1.8cm;
-}
+size: letter;
+    margin: 1cm 1cm 1.5cm 1.5cm;
 
 html, body {
     margin: 0;
     padding: 0;
-    width: 100%;
 }
 
 body {
     font-family: Arial, sans-serif;
     font-size: 12px;
-    color: #000;
+    margin: 0;
+    padding: 0;
 }
 
 /* ===== FOOTER IMAGE ===== */
 .pdf-footer {
-    position: fixed;
-    bottom: -0.8cm;
+ position: fixed;
+    bottom: 0cm; /* Pegado al margen inferior de la página */
     left: 0;
     right: 0;
-    height: 55px;
+    height: 1.5cm;
+    text-align: center;
 }
 
 .pdf-footer img {
     width: 100%;
-    display: block;
+    height: auto;
 }
 
 /* ===== SIGNATURES ===== */
@@ -273,20 +269,25 @@ body {
 
 /* ===== MAIN BOX ===== */
 .main-box {
-    border: 1.5px solid #000;
+   border: 1.5px solid #000;
     margin-top: 0.3cm;
-    margin-bottom: 10px;
-    width: 100%;
+    width: 100%; 
+}
+
+/* ===== CONTENIDO INTERNO ===== */
+.content-area {
+ padding-left: 10px;
+    padding-right: 10px;
 }
 
 /* ===== HEADER BOX ===== */
 .header-box {
-    width: 100%;
     border-bottom: 2px solid #000;
 }
 
 .header-box img {
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     height: auto;
     display: block;
 }
@@ -311,7 +312,7 @@ body {
 }
 
 .section-box .section-body {
-    padding: 7px;
+    padding: 7px 0;
     min-height: 30px;
     line-height: 1.4;
     font-size: 11px;
@@ -320,7 +321,7 @@ body {
 
 /* ===== INFO BOX ===== */
 .info-box {
-    padding: 12px 14px;
+    padding: 12px 0;
     border-bottom: 1px solid #000;
 }
 .info-table {
@@ -375,9 +376,6 @@ body {
     max-height: 140px;
 }
 
-
-
-
 /* ===== FOOTER ===== */
 .footer-legend {
     margin-top: 25px;
@@ -410,12 +408,13 @@ body {
 
 
 <div class="main-box">
-    <!-- HEADER BOX -->
     <div class="header-box">
         <img src="' . $base64Header . '">
     </div>
 
     <!-- ===== INFO BOX ===== -->
+
+<div class="content-area">
     
 <div class="info-box">
 
@@ -454,6 +453,7 @@ body {
             </td>
         </tr>
     </table>
+    </div>
     </div>
 <!-- ===== DESCRIPCIÓN ===== -->
 <div class="section-box">
