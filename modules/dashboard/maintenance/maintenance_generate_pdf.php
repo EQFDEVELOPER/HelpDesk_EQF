@@ -199,321 +199,214 @@ $html = '
 <head>
 <meta charset="UTF-8">
 <style>
-* {
-    box-sizing: border-box;
-}
- 
-
-/* ===== CONFIGURACIÓN DE PÁGINA ===== */
-@page {
-size: letter;
-    margin: 1cm 1cm 1.5cm 1.5cm;
-
-html, body {
-    margin: 0;
-    padding: 0;
-}
-
-body {
-    font-family: Arial, sans-serif;
-    font-size: 12px;
-    margin: 0;
-    padding: 0;
-}
-
-/* ===== FOOTER IMAGE ===== */
-.pdf-footer {
- position: fixed;
-    bottom: 0cm; /* Pegado al margen inferior de la página */
-    left: 0;
-    right: 0;
-    height: 1.5cm;
-    text-align: center;
-}
-
-.pdf-footer img {
-    width: 100%;
-    height: auto;
-}
-
-/* ===== SIGNATURES ===== */
-
-.signatures {
-    width: 100%;
-    margin-top: 45px;
-    border-collapse: collapse;
-}
-
-.signatures td {
-    width: 50%;
-    text-align: center;
-    vertical-align: top;
-    padding: 0 15px;
-}
-
-.sign-line {
-    border-top: 1px solid #000;
-    margin-bottom: 4px;
-    height: 1px;
-}
-
-.sign-title {
-    font-size: 10px;
-    font-weight: bold;
-}
-
-.sign-sub {
-    font-size: 9px;
-    color: #333;
-}
-
-/* ===== MAIN BOX ===== */
-.main-box {
-   border: 1.5px solid #000;
-    margin-top: 0.3cm;
-    width: 100%; 
-}
-
-/* ===== CONTENIDO INTERNO ===== */
-.content-area {
- padding-left: 10px;
-    padding-right: 10px;
-}
-
-/* ===== HEADER BOX ===== */
-.header-box {
-    border-bottom: 2px solid #000;
-}
-
-.header-box img {
-    width: auto;
-    max-width: 100%;
-    height: auto;
-    display: block;
-}
- 
- 
-/* ===== SECTION BOXES ===== */
-.section-box {
-    border-top: 1px solid #000000ff;
-    border-bottom: 1px solid #000000ff;
-    border-left: 0;
-    border-right: 0;
-    margin: 0;
-    page-break-inside: avoid;
+    * { box-sizing: border-box; }
+    
+    @page {
+        size: letter;
+        margin: 1cm 1.5cm 1.5cm 1.5cm;
     }
 
-.section-box .section-header {
-    background: ' . $lightBlue . ';
-    font-weight: bold;
-    font-size: 12px;
-    padding: 5px 8px;
-    border-bottom: 1px solid #333;
-}
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 11px;
+        margin: 0;
+        padding: 0;
+    }
 
-.section-box .section-body {
-    padding: 7px 0;
-    min-height: 30px;
-    line-height: 1.4;
-    font-size: 11px;
-}
+    /* 3. FOOTER POSICIONADO */
+    .pdf-footer {
+        position: fixed;
+        bottom: -1.2cm; 
+        left: 0;
+        right: 0;
+        height: 1.5cm;
+        text-align: center;
+    }
 
+    .pdf-footer img {
+        width: 100%;
+        height: auto;
+    }
 
-/* ===== INFO BOX ===== */
-.info-box {
-    padding: 12px 0;
-    border-bottom: 1px solid #000;
-}
-.info-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11px;
-}
+    /* 1. ALINEACIÓN DE INFO (Prefijo y línea en la misma fila) */
+    .info-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 5px;
+    }
 
-.info-table td {
-    vertical-align: top;
-    padding-bottom: 12px;
-}
+    .info-label {
+        font-weight: bold;
+        white-space: nowrap;
+        padding-right: 5px;
+        vertical-align: bottom;
+        width: 1%; /* Forzar a que ocupe solo su texto */
+    }
 
-.info-label {
-    font-weight: bold;
-    white-space: nowrap;
-}
+    .info-value {
+        border-bottom: 1px solid #000;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        padding-left: 5px;
+    }
 
-.info-line {
-    border-bottom: 1px solid #000;
-    padding-left: 5px;
-    text-transform: uppercase;
-    height: 18px;
-}
+    /* MAIN BOX */
+    .main-box {
+        border: 1.5px solid #000;
+        width: 100%;
+        margin-top: 0.3cm;
+    }
 
-.images-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 8px;
-    page-break-inside: auto;
+    .content-area {
+        padding: 0 10px;
+    }
 
-}
+    .header-box {
+        border-bottom: 2px solid #000;
+    }
 
-.images-table td {
-    width: 25%;
-    padding: 4px;
-    vertical-align: top;
-    text-align: center;
-}
-.images-table tr {
-    page-break-inside: avoid;
-    page-break-after: auto;
-}
-.image-wrapper {
-    border: 1px solid #999;
-    padding: 3px;
-}
+    .header-box img {
+        width: 100%;
+        display: block;
+    }
 
-.image-wrapper img {
-    width: 100%;
-    height: auto;
-    max-height: 140px;
-}
+    /* SECCIONES */
+    .section-box {
+        border-top: 1px solid #000;
+        margin: 0;
+        page-break-inside: avoid;
+    }
 
-/* ===== FOOTER ===== */
-.footer-legend {
-    margin-top: 25px;
-    text-align: center;
-    font-size: 7.5px;
-    color: #444;
-    padding: 0 10px;
-}
+    .section-header {
+        background: ' . $lightBlue . ';
+        font-weight: bold;
+        padding: 5px 8px;
+        border-bottom: 1px solid #000;
+    }
 
-.footer-line {
-    width: 100%;
-    margin-top: 5px;
-}
+    .section-body {
+        padding: 7px 8px;
+        min-height: 30px;
+    }
 
-.footer-line svg {
-    width: 100%;
-    height: 10px;
-    display: block;
-}
+    /* IMÁGENES */
+    .images-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .images-table td {
+        width: 25%;
+        padding: 4px;
+        text-align: center;
+    }
+
+    .image-wrapper {
+        border: 1px solid #999;
+        padding: 2px;
+    }
+
+    .image-wrapper img {
+        width: 100%;
+        max-height: 120px;
+    }
+
+    /* 2. FIRMAS (Fuera del recuadro y abajo) */
+    .signatures-container {
+        position: absolute;
+        bottom: 1.8cm; /* Arriba del footer */
+        width: 100%;
+        left: 0;
+    }
+
+    .signatures-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .signatures-table td {
+        width: 50%;
+        text-align: center;
+        padding: 0 40px;
+    }
+
+    .sign-line {
+        border-top: 1px solid #000;
+        margin-bottom: 5px;
+    }
+
+    .sign-title { font-weight: bold; font-size: 10px; }
+    .sign-sub { font-size: 9px; color: #333; }
 
 </style>
 </head>
 <body>
 
-<!-- FOOTER (Se repetirá abajo en todas las páginas) -->
-<div class="pdf-footer">
-    <img src="' . $base64Footer . '">
-</div>
-
-
-
-<div class="main-box">
-    <div class="header-box">
-        <img src="' . $base64Header . '">
+    <div class="pdf-footer">
+        <img src="' . $base64Footer . '">
     </div>
 
-    <!-- ===== INFO BOX ===== -->
+    <div class="main-box">
+        <div class="header-box">
+            <img src="' . $base64Header . '">
+        </div>
 
-<div class="content-area">
-    
-<div class="info-box">
+        <div class="content-area">
+            <div style="padding: 10px 0;">
+                <table class="info-table">
+                    <tr>
+                        <td class="info-label">Jefe de Sucursal:</td>
+                        <td class="info-value">' . $solicitante . '</td>
+                        <td class="info-label" style="padding-left:15px;">Fecha de solicitud:</td>
+                        <td class="info-value" style="text-align:center; width:15%;">' . $fecha . '</td>
+                    </tr>
+                </table>
+                <table class="info-table">
+                    <tr>
+                        <td class="info-label">Sucursal:</td>
+                        <td class="info-value">' . $sucursal . '</td>
+                    </tr>
+                </table>
+            </div>
 
-    <table class="info-table">
-        <tr>
-            <td width="65%">
-                <span class="info-label">
-                    Jefe de Sucursal:
-                </span>
+            <div class="section-box">
+                <div class="section-header">Descripción de la solicitud de mantenimiento</div>
+                <div class="section-body">' . $descripcion . '</div>
+            </div>
 
-                <div class="info-line">
-                    ' . $solicitante . '
+            <div class="section-box">
+                <div class="section-header">Observaciones</div>
+                <div class="section-body">
+                    <table class="images-table">
+                        ' . $imagesHtml . '
+                    </table>
                 </div>
-            </td>
+            </div>
 
-            <td width="35%">
-                <span class="info-label">
-                    Fecha de solicitud:
-                </span>
-
-                <div class="info-line" style="text-align:center;">
-                    ' . $fecha . '
-                </div>
-            </td>
-        </tr>
-
-        <tr>
-            <td colspan="2">
-                <span class="info-label">
-                    Sucursal:
-                </span>
-
-                <div class="info-line">
-                    ' . $sucursal . '
-                </div>
-            </td>
-        </tr>
-    </table>
+            <div class="section-box" style="border-bottom: none;">
+                <div class="section-header">En caso de no autorizarse el mantenimiento describir el ¿Por qué?</div>
+                <div class="section-body" style="height:50px;"></div>
+            </div>
+        </div>
     </div>
-    </div>
-<!-- ===== DESCRIPCIÓN ===== -->
-<div class="section-box">
-    <div class="section-header">Descripción de la solicitud de mantenimiento</div>
-    <div class="section-body">' . $descripcion . '</div>
-</div>
 
-<!-- ===== OBSERVACIONES ===== -->
-<div class="section-box">
-    <div class="section-header">Observaciones</div>
-    <div class="section-body">
-
-        <table class="images-table">
-            ' . $imagesHtml . '
+    <div class="signatures-container">
+        <table class="signatures-table">
+            <tr>
+                <td>
+                    <div class="sign-line"></div>
+                    <div class="sign-title">Solicita</div>
+                    <div class="sign-sub">(Fecha y firma)</div>
+                </td>
+                <td>
+                    <div class="sign-line"></div>
+                    <div class="sign-title">Revisó y Autorizó</div>
+                    <div class="sign-sub">(Nombre, fecha y firma)</div>
+                </td>
+            </tr>
         </table>
-
-    </div>
-</div>
-
-<!-- ===== NO AUTORIZACIÓN ===== -->
-<div class="section-box">
-    <div class="section-header">
-        En caso de no autorizarse el mantenimiento describir el ¿Por qué?
     </div>
 
-    <div class="section-body" style="height:35px;"></div>
-</div>
-<!-- ===== FIRMAS ===== -->
-
-<table class="signatures">
-    <tr>
-
-        <td>
-            <div class="sign-line"></div>
-
-            <div class="sign-title">
-                Solicita
-            </div>
-
-            <div class="sign-sub">
-                (Fecha y firma)
-            </div>
-        </td>
-
-        <td>
-            <div class="sign-line"></div>
-
-            <div class="sign-title">
-                Revisó y Autorizó
-            </div>
-
-            <div class="sign-sub">
-                (Nombre, fecha y firma)
-            </div>
-        </td>
-
-    </tr>
-</table>
-
-</div>
 </body>
 </html>
 ';
