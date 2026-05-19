@@ -203,6 +203,7 @@ $html = '
     
     @page {
         size: letter;
+        /* Margen Izquierdo 1.5cm, Derecho 1.5cm (ajustable) */
         margin: 1cm 1.5cm 1.5cm 1.5cm;
     }
 
@@ -213,52 +214,16 @@ $html = '
         padding: 0;
     }
 
-    /* 3. FOOTER POSICIONADO */
-    .pdf-footer {
-        position: fixed;
-        bottom: -1.2cm; 
-        left: 0;
-        right: 0;
-        height: 1.5cm;
-        text-align: center;
-    }
-
-    .pdf-footer img {
-        width: 100%;
-        height: auto;
-    }
-
-    /* 1. ALINEACIÓN DE INFO (Prefijo y línea en la misma fila) */
-    .info-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 5px;
-    }
-
-    .info-label {
-        font-weight: bold;
-        white-space: nowrap;
-        padding-right: 5px;
-        vertical-align: bottom;
-        width: 1%; /* Forzar a que ocupe solo su texto */
-    }
-
-    .info-value {
-        border-bottom: 1px solid #000;
-        text-transform: uppercase;
-        vertical-align: bottom;
-        padding-left: 5px;
-    }
-
-    /* MAIN BOX */
+    /* MAIN BOX: Bordes gruesos de 2px */
     .main-box {
-        border: 1.5px solid #000;
+        border: 2px solid #000;
         width: 100%;
         margin-top: 0.3cm;
     }
 
+    /* Área de contenido sin padding lateral para que las secciones toquen el borde */
     .content-area {
-        padding: 0 10px;
+        padding: 0;
     }
 
     .header-box {
@@ -270,23 +235,50 @@ $html = '
         display: block;
     }
 
-    /* SECCIONES */
+    /* INFO SUPERIOR */
+    .info-container-wrapper {
+        padding: 10px;
+    }
+
+    .info-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 5px;
+    }
+
+    .info-label {
+        font-weight: bold;
+        white-space: nowrap;
+        padding-right: 5px;
+        vertical-align: bottom;
+        width: 1%;
+    }
+
+    .info-value {
+        border-bottom: 2px solid #000;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        padding-left: 5px;
+    }
+
+    /* SECCIONES: Se juntan con el borde del main-box */
     .section-box {
-        border-top: 1px solid #000;
+        border-top: 2px solid #000;
         margin: 0;
-        page-break-inside: avoid;
+        width: 100%;
+        page-break-inside: auto; 
     }
 
     .section-header {
         background: ' . $lightBlue . ';
         font-weight: bold;
-        padding: 5px 8px;
-        border-bottom: 1px solid #000;
+        padding: 5px 10px;
+        border-bottom: 2px solid #000;
     }
 
     .section-body {
-        padding: 7px 8px;
-        min-height: 30px;
+        padding: 8px 10px;
+        min-height: 35px;
     }
 
     /* IMÁGENES */
@@ -311,10 +303,10 @@ $html = '
         max-height: 120px;
     }
 
-    /* 2. FIRMAS (Fuera del recuadro y abajo) */
-    .signatures-container {
+    /* BLOQUE FINAL: Firmas y Footer (Solo en última página y hasta abajo) */
+    .last-page-footer {
         position: absolute;
-        bottom: 1.8cm; /* Arriba del footer */
+        bottom: -45px; /* Ajuste negativo para bajarlo al límite */
         width: 100%;
         left: 0;
     }
@@ -322,29 +314,32 @@ $html = '
     .signatures-table {
         width: 100%;
         border-collapse: collapse;
+        margin-bottom: 20px;
     }
 
     .signatures-table td {
         width: 50%;
         text-align: center;
         padding: 0 40px;
+        vertical-align: bottom;
     }
 
     .sign-line {
-        border-top: 1px solid #000;
+        border-top: 2px solid #000;
         margin-bottom: 5px;
     }
 
     .sign-title { font-weight: bold; font-size: 10px; }
     .sign-sub { font-size: 9px; color: #333; }
 
+    .pdf-footer-img img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
 </style>
 </head>
 <body>
-
-    <div class="pdf-footer">
-        <img src="' . $base64Footer . '">
-    </div>
 
     <div class="main-box">
         <div class="header-box">
@@ -352,7 +347,7 @@ $html = '
         </div>
 
         <div class="content-area">
-            <div style="padding: 10px 0;">
+            <div class="info-container-wrapper">
                 <table class="info-table">
                     <tr>
                         <td class="info-label">Jefe de Sucursal:</td>
@@ -361,10 +356,11 @@ $html = '
                         <td class="info-value" style="text-align:center; width:15%;">' . $fecha . '</td>
                     </tr>
                 </table>
-                <table class="info-table">
+                <table class="info-table" style="margin-top: 8px;">
                     <tr>
                         <td class="info-label">Sucursal:</td>
-                        <td class="info-value">' . $sucursal . '</td>
+                        <td class="info-value" style="width: 50%;">' . $sucursal . '</td>
+                        <td></td> 
                     </tr>
                 </table>
             </div>
@@ -385,12 +381,12 @@ $html = '
 
             <div class="section-box" style="border-bottom: none;">
                 <div class="section-header">En caso de no autorizarse el mantenimiento describir el ¿Por qué?</div>
-                <div class="section-body" style="height:50px;"></div>
+                <div class="section-body" style="height:60px;"></div>
             </div>
         </div>
     </div>
 
-    <div class="signatures-container">
+    <div class="last-page-footer">
         <table class="signatures-table">
             <tr>
                 <td>
@@ -405,6 +401,10 @@ $html = '
                 </td>
             </tr>
         </table>
+
+        <div class="pdf-footer-img">
+            <img src="' . $base64Footer . '">
+        </div>
     </div>
 
 </body>
