@@ -41,7 +41,7 @@ if (!in_array($userEmail, $allowedEmails, true)) {
 $requestId = (int)($_POST['request_id'] ?? 0);
 
 $status = strtoupper(trim($_POST['status'] ?? ''));
-
+$cancelReason = trim($_POST['cancel_reason'] ?? '');
 $validStatus = [
     'PENDIENTE',
     'EN_PROCESO',
@@ -50,7 +50,17 @@ $validStatus = [
 ];
 
 if ($requestId <= 0 || !in_array($status, $validStatus, true)) {
+if ($status === 'CANCELADO' && $cancelReason === '') {
 
+    http_response_code(400);
+
+    echo json_encode([
+        'ok' => false,
+        'msg' => 'Debes escribir un motivo de cancelación'
+    ]);
+
+    exit;
+}
     http_response_code(400);
 
     echo json_encode([
@@ -64,18 +74,21 @@ if ($requestId <= 0 || !in_array($status, $validStatus, true)) {
 try {
 
     $sql = "
-        UPDATE maintenance_requests
-        SET status = :status
-        WHERE id = :id
-        LIMIT 1
-    ";
+    UPDATE maintenance_requests
+    SET
+        status = :status,
+        cancel_reason = :cancel_reason
+    WHERE id = :id
+    LIMIT 1
+";
 
-    $stmt = $conn->prepare($sql);
+$stmt = $conn->prepare($sql);
 
-    $stmt->execute([
-        ':status' => $status,
-        ':id'     => $requestId
-    ]);
+$stmt->execute([
+    ':status'        => $status,
+    ':cancel_reason' => $cancelReason ?: null,
+    ':id'            => $requestId
+]);
 
     echo json_encode([
         'ok' => true,

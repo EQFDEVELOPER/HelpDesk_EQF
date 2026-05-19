@@ -110,7 +110,62 @@ if (!in_array($userEmail, $allowedEmails, true)) {
     </div>
 
 </div>
+<!-- MODAL CANCELAR -->
+<div class="eqf-modal-backdrop" id="modal-cancel-maintenance">
 
+    <div class="eqf-modal" style="max-width:500px;">
+
+        <div class="eqf-modal-header">
+
+            <h3>Cancelar mantenimiento</h3>
+
+            <button
+                class="eqf-modal-close"
+                type="button"
+                onclick="closeModal('modal-cancel-maintenance')">
+                ✕
+            </button>
+
+        </div>
+
+        <div class="eqf-modal-body">
+
+            <input type="hidden" id="cancelRequestId">
+
+            <label>
+                Motivo de cancelación
+            </label>
+
+            <textarea
+                id="cancelReason"
+                class="form-control"
+                rows="5"
+                style="width:100%; resize:none;"
+                placeholder="Escribe la razón..."></textarea>
+
+            <div style="margin-top:20px; text-align:right;">
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    onclick="closeModal('modal-cancel-maintenance')">
+                    Cerrar
+                </button>
+
+                <button
+                    type="button"
+                    class="btn btn-danger"
+                    onclick="confirmCancelMaintenance()">
+                    Confirmar cancelación
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
 <script>
 (function(){
 
@@ -343,7 +398,49 @@ function formatStatus(status){
 
         });
     }
+window.confirmCancelMaintenance = async function(){
+    const id = document.getElementById('cancelRequestId').value;
 
+    const reason = document.getElementById('cancelReason').value.trim();
+
+    if (!reason){
+
+        alert('Debes escribir un motivo.');
+
+        return;
+    }
+
+    try{
+
+        const out = await apiJson(
+            '/HelpDesk_EQF/modules/dashboard/user/ajax/maintenance_update_status.php',
+            {
+                method:'POST',
+
+                headers:{
+                    'Content-Type':'application/x-www-form-urlencoded'
+                },
+
+                body: new URLSearchParams({
+                    request_id: String(id),
+                    status: 'CANCELADO',
+                    cancel_reason: reason
+                })
+            }
+        );
+
+        alert(out.msg || 'Solicitud cancelada');
+
+        closeModal('modal-cancel-maintenance');
+
+        load();
+
+    }catch(e){
+
+        alert(e.message || 'No se pudo cancelar');
+
+    }
+}
     async function load(){
 
         try{
@@ -388,9 +485,20 @@ function formatStatus(status){
         }
 
         if (status === 'CANCELADO') {
-            msgConfirm = '¿Cancelar solicitud?';
-        }
 
+    msgConfirm = '¿Cancelar solicitud?';
+
+    if (!confirm(msgConfirm)) {
+        return;
+    }
+
+    document.getElementById('cancelRequestId').value = id;
+    document.getElementById('cancelReason').value = '';
+
+    openModal('modal-cancel-maintenance');
+
+    return;
+}
         if (!confirm(msgConfirm)) {
             return;
         }

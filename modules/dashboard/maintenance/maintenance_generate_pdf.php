@@ -79,6 +79,9 @@ $descripcion = nl2br(
 $solicitante = htmlspecialchars(
     $request['full_name'] ?? 'N/A'
 );
+$cancelReason = nl2br(
+    htmlspecialchars($request['cancel_reason'] ?? '')
+);
  
 /* =========================
    IMAGENES
@@ -382,6 +385,7 @@ $html = '
             <div class="section-box" style="border-bottom: none;">
                 <div class="section-header">En caso de no autorizarse el mantenimiento describir el ¿Por qué?</div>
                 <div class="section-body" style="height:60px;"></div>
+                ' . $cancelReason . '
             </div>
         </div>
     </div>
