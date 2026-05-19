@@ -24,7 +24,12 @@ if (!in_array($userEmail, $allowedEmails, true)) {
 ?>
 
 <link rel="stylesheet" href="/HelpDesk_EQF/assets/css/style.css?v=<?php echo time(); ?>">
-
+<style>
+#modal-maintenance-analyst-view .eqf-modal-body{
+    max-height: calc(100vh - 220px);
+    overflow: auto;
+}
+</style>
 <div class="user-main">
     <div class="user-main-inner">
 

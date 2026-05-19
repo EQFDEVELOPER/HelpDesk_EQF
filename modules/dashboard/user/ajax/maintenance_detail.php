@@ -85,7 +85,7 @@ $files = $stmtFiles->fetchAll(PDO::FETCH_ASSOC);
         </div>
 
         <div class="task-row">
-            <div class="task-label">Solicitante</div>
+            <div class="task-label">Sucursal</div>
             <div class="task-value">
                 <?php echo htmlspecialchars($r['requester_email']); ?>
             </div>
