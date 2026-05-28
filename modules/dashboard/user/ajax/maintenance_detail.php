@@ -129,7 +129,9 @@ try {
                 </a>
             <?php endif; ?>
 
-            <span style="color:#999;">|</span>
+            <?php if (!empty($r['pdf_generated']) || !empty($r['scanned_request']) || $r['status'] !== 'FINALIZADO'): ?>
+                <span style="color:#999;">|</span>
+            <?php endif; ?>
             <a href="/HelpDesk_EQF/modules/dashboard/user/ajax/download_attachments_zip.php?id=<?php echo (int)$r['id']; ?>"
                class="task-link-blue">
                 <i class="fas fa-file-archive"></i> ZIP
