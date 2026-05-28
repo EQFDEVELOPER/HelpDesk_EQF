@@ -505,9 +505,31 @@ window.removeFile = function(index){
 
 </div>
 
-        <div class="task-actions" style="justify-content:flex-end;">
-          <button class="task-link-blue" type="button" data-view="${Number(rq.id)}">Ver</button>
-        </div>
+       <div class="task-actions" style="justify-content:flex-end; gap:10px;">
+
+  <button
+    class="task-link-blue"
+    type="button"
+    data-view="${Number(rq.id)}"
+  >
+    Ver
+  </button>
+
+  ${
+    rq.feedback_token && !rq.answered_at
+    ? `
+      <a
+        class="task-link-blue"
+        href="/HelpDesk_EQF/modules/feedback/feedback_maintenance.php?token=${encodeURIComponent(rq.feedback_token)}"
+        target="_blank"
+      >
+        Encuesta
+      </a>
+    `
+    : ''
+  }
+
+</div>
       `;
 
       reqList.appendChild(card);

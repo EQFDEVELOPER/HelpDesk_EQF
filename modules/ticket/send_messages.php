@@ -21,7 +21,8 @@ $rol    = (int)($_SESSION['user_rol'] ?? 0);
 
 $ticketId = isset($_POST['ticket_id']) ? (int)$_POST['ticket_id'] : 0;
 $mensaje  = trim($_POST['mensaje'] ?? '');
-
+$equipoArea = $_POST['equipo_area'] ?? [];
+$equipoAreaJson = json_encode($equipoArea, JSON_UNESCAPED_UNICODE);
 // acepta cualquiera de los 2 nombres:
 $isInternal = 0;
 if (isset($_POST['interno'])) {
@@ -102,7 +103,19 @@ if ($userId === $ticketUserId) {
     };
 
     $pdo->beginTransaction();
+if ($isInternal === 1 && !empty($equipoArea)) {
 
+    $stmtEq = $pdo->prepare("
+        UPDATE tickets
+        SET equipo_area = :equipo_area
+        WHERE id = :id
+    ");
+
+    $stmtEq->execute([
+        ':equipo_area' => $equipoAreaJson,
+        ':id' => $ticketId
+    ]);
+}
     // 1) Insertamos mensaje (con created_at explícito por seguridad)
     $stmtIns = $pdo->prepare("
         INSERT INTO ticket_messages (ticket_id, sender_id, sender_role, mensaje, is_internal, created_at)

@@ -13,6 +13,37 @@ $userId    = (int)($_SESSION['user_id'] ?? 0);
 $areaAdmin = trim($_SESSION['user_area'] ?? '');
 
 // -----------------------------
+// Endpoint AJAX para obtener detalles específicos del ticket
+// -----------------------------
+if (isset($_GET['action']) && $_GET['action'] === 'get_ticket_details') {
+    header('Content-Type: application/json');
+    $tId = (int)($_GET['ticket_id'] ?? 0);
+    
+    $stmtView = $pdo->prepare("
+        SELECT t.id, t.email, t.descripcion, t.fecha_envio, t.estado, t.asignado_a,
+               a.name AS analyst_name, a.last_name AS analyst_last
+        FROM tickets t
+        LEFT JOIN users a ON a.id = t.asignado_a AND a.rol = 3
+        WHERE t.id = :id AND t.area = :area LIMIT 1
+    ");
+    $stmtView->execute([':id' => $tId, ':area' => $areaAdmin]);
+    $ticketDetails = $stmtView->fetch(PDO::FETCH_ASSOC);
+    
+    if ($ticketDetails) {
+        // Procesamos la sucursal desde aquí para enviarla limpia
+        $sucursal = '—';
+        if (!empty($ticketDetails['email'])) {
+            $partes = explode('@', $ticketDetails['email']);
+            $sucursal = strtoupper($partes[0]);
+        }
+        $ticketDetails['sucursal'] = $sucursal;
+    }
+    
+    echo json_encode($ticketDetails ? $ticketDetails : ['error' => 'No encontrado']);
+    exit;
+}
+
+// -----------------------------
 // Flash messages (PRG)
 // -----------------------------
 $mensajeExito = $_SESSION['flash_ok'] ?? '';
@@ -51,7 +82,7 @@ function estadoLabel(?string $e): string {
         'en_proceso' => 'En proceso',
         'resuelto'   => 'Resuelto',
         'cerrado'    => 'Cerrado',
-        default      => ($e !== '' ? ucfirst($e) : '—'),
+        default      => ($p !== '' ? ucfirst($e) : '—'),
     };
 }
 
@@ -72,7 +103,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirectSelf();
     }
 
-    // Verifica que el ticket sea del área del admin + trae datos base
     $stmtCheck = $pdo->prepare("
         SELECT id, area, asignado_a, problema, estado, user_id
         FROM tickets
@@ -89,115 +119,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $ticketOwnerId = (int)($ticketBase['user_id'] ?? 0);
 
-    // -----------------------------
-    // 1) Asignar / Reasignar
-    // -----------------------------
-    if ($accion === 'asignar') {
+    // Asignar / Reasignar (o cambios globales desde Modal Ver)
+    if ($accion === 'asignar' || $accion === 'actualizar_desde_ver') {
         $analystId = (int)($_POST['analyst_id'] ?? 0);
         $motivo    = trim($_POST['motivo'] ?? '');
-
-        if ($analystId <= 0) {
-            $_SESSION['flash_err'] = "Selecciona un analista válido.";
-            redirectSelf();
-        }
-
-        // (Opcional) no permitir asignar si ya está cerrado
-        if (in_array(($ticketBase['estado'] ?? ''), ['cerrado'], true)) {
-            $_SESSION['flash_err'] = "No puedes asignar/reasignar un ticket cerrado.";
-            redirectSelf();
-        }
-
-        // Analista rol=3 y misma área
-        $stmtA = $pdo->prepare("
-            SELECT id, name, last_name
-            FROM users
-            WHERE id = :id AND rol = 3 AND area = :area
-            LIMIT 1
-        ");
-        $stmtA->execute([':id' => $analystId, ':area' => $areaAdmin]);
-        $analista = $stmtA->fetch(PDO::FETCH_ASSOC);
-
-        if (!$analista) {
-            $_SESSION['flash_err'] = "Ese analista no pertenece a tu área.";
-            redirectSelf();
-        }
-
-        $fromAnalyst = (int)($ticketBase['asignado_a'] ?? 0);
+        $nuevoEstado = $_POST['estado'] ?? null;
 
         try {
             $pdo->beginTransaction();
 
-            // Update ticket
-            $stmtUp = $pdo->prepare("
-                UPDATE tickets
-                SET asignado_a = :aid,
-                    fecha_asignacion = COALESCE(fecha_asignacion, NOW())
-                WHERE id = :tid AND area = :area
-            ");
-            $stmtUp->execute([
-                ':aid'  => $analystId,
-                ':tid'  => $ticketId,
-                ':area' => $areaAdmin
-            ]);
+            // Si se procesa cambio de estado
+            if ($nuevoEstado && $nuevoEstado !== $ticketBase['estado']) {
+                $permitidos = ['abierto','en_proceso','resuelto','cerrado'];
+                if (in_array($nuevoEstado, $permitidos, true)) {
+                    if ($nuevoEstado === 'resuelto' || $nuevoEstado === 'cerrado') {
+                        $stmtUpEst = $pdo->prepare("UPDATE tickets SET estado = :estado, fecha_resolucion = COALESCE(fecha_resolucion, NOW()) WHERE id = :tid");
+                    } else {
+                        $stmtUpEst = $pdo->prepare("UPDATE tickets SET estado = :estado WHERE id = :tid");
+                    }
+                    $stmtUpEst->execute([':estado' => $nuevoEstado, ':tid' => $ticketId]);
+                }
+            }
 
-            // Log (si existe)
-            // Si aún no tienes esta tabla, comenta este bloque.
-            $stmtLog = $pdo->prepare("
-                INSERT INTO ticket_assignments_log (ticket_id, from_analyst_id, to_analyst_id, admin_id, motivo)
-                VALUES (:tid, :from_id, :to_id, :admin_id, :motivo)
-            ");
-            $stmtLog->execute([
-                ':tid'      => $ticketId,
-                ':from_id'  => ($fromAnalyst > 0 ? $fromAnalyst : null),
-                ':to_id'    => $analystId,
-                ':admin_id' => $userId,
-                ':motivo'   => ($motivo !== '' ? mb_substr($motivo, 0, 255) : null),
-            ]);
+            // Si se procesa asignación/reasignación de analista
+            if ($analystId > 0 && $analystId !== (int)$ticketBase['asignado_a']) {
+                if (in_array(($ticketBase['estado'] ?? ''), ['cerrado'], true) && !$nuevoEstado) {
+                    $_SESSION['flash_err'] = "No puedes asignar/reasignar un ticket cerrado.";
+                    redirectSelf();
+                }
 
-            // Notificación al analista destino
-            $body = "Se te asignó el ticket #{$ticketId}.";
-            if ($motivo !== '') $body .= " Motivo: " . mb_substr($motivo, 0, 180);
+                $stmtA = $pdo->prepare("SELECT id, name, last_name FROM users WHERE id = :id AND rol = 3 AND area = :area LIMIT 1");
+                $stmtA->execute([':id' => $analystId, ':area' => $areaAdmin]);
+                $analista = $stmtA->fetch(PDO::FETCH_ASSOC);
 
-            notify_user(
-                $pdo,
-                $analystId,
-                'ticket_assigned',
-                'Ticket asignado',
-                $body,
-                "/HelpDesk_EQF/modules/dashboard/analyst/analyst.php?open_ticket={$ticketId}"
-            );
+                if ($analista) {
+                    $fromAnalyst = (int)($ticketBase['asignado_a'] ?? 0);
 
-            // Si fue reasignación real, avisar al anterior
-            if ($fromAnalyst > 0 && $fromAnalyst !== $analystId) {
-                notify_user(
-                    $pdo,
-                    $fromAnalyst,
-                    'ticket_reassigned',
-                    'Ticket reasignado',
-                    "El ticket #{$ticketId} fue reasignado a otro analista.",
-                    "/HelpDesk_EQF/modules/dashboard/analyst/analyst.php"
-                );
+                    $stmtUp = $pdo->prepare("
+                        UPDATE tickets
+                        SET asignado_a = :aid, fecha_asignacion = COALESCE(fecha_asignacion, NOW())
+                        WHERE id = :tid AND area = :area
+                    ");
+                    $stmtUp->execute([':aid' => $analystId, ':tid' => $ticketId, ':area' => $areaAdmin]);
+
+                    $body = "Se te asignó el ticket #{$ticketId}.";
+                    if ($motivo !== '') $body .= " Motivo: " . mb_substr($motivo, 0, 180);
+
+                    notify_user($pdo, $analystId, 'ticket_assigned', 'Ticket asignado', $body, "/HelpDesk_EQF/modules/dashboard/analyst/analyst.php?open_ticket={$ticketId}");
+
+                    if ($fromAnalyst > 0 && $fromAnalyst !== $analystId) {
+                        notify_user($pdo, $fromAnalyst, 'ticket_reassigned', 'Ticket reasignado', "El ticket #{$ticketId} fue reasignado a otro analista.", "/HelpDesk_EQF/modules/dashboard/analyst/analyst.php");
+                    }
+                }
             }
 
             $pdo->commit();
-
-            $nombreA = trim(($analista['name'] ?? '') . ' ' . ($analista['last_name'] ?? ''));
-            $_SESSION['flash_ok'] = ($fromAnalyst > 0)
-                ? "Ticket #{$ticketId} reasignado a {$nombreA}."
-                : "Ticket #{$ticketId} asignado a {$nombreA}.";
-
+            $_SESSION['flash_ok'] = "Ticket #{$ticketId} actualizado con éxito.";
             redirectSelf();
 
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            $_SESSION['flash_err'] = "Error al asignar: " . $e->getMessage();
+            $_SESSION['flash_err'] = "Error al actualizar: " . $e->getMessage();
             redirectSelf();
         }
     }
 
-    // -----------------------------
-    // 2) Cambiar estado
-    // -----------------------------
+    // Cambiar estado independiente (Clic en el Estatus de la Tabla)
     if ($accion === 'estado') {
         $estado = $_POST['estado'] ?? '';
         $permitidos = ['abierto','en_proceso','resuelto','cerrado'];
@@ -211,49 +198,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();
 
             if ($estado === 'resuelto' || $estado === 'cerrado') {
-                $stmtUp = $pdo->prepare("
-                    UPDATE tickets
-                    SET estado = :estado,
-                        fecha_resolucion = COALESCE(fecha_resolucion, NOW())
-                    WHERE id = :tid AND area = :area
-                ");
+                $stmtUp = $pdo->prepare("UPDATE tickets SET estado = :estado, fecha_resolucion = COALESCE(fecha_resolucion, NOW()) WHERE id = :tid AND area = :area");
             } else {
-                $stmtUp = $pdo->prepare("
-                    UPDATE tickets
-                    SET estado = :estado
-                    WHERE id = :tid AND area = :area
-                ");
+                $stmtUp = $pdo->prepare("UPDATE tickets SET estado = :estado WHERE id = :tid AND area = :area");
             }
 
             $stmtUp->execute([':estado' => $estado, ':tid' => $ticketId, ':area' => $areaAdmin]);
 
-            // Notificar al analista asignado (si existe)
             $aid = (int)($ticketBase['asignado_a'] ?? 0);
             if ($aid > 0) {
-                notify_user(
-                    $pdo,
-                    $aid,
-                    'ticket_status',
-                    'Estado actualizado',
-                    "El ticket #{$ticketId} cambió a: " . estadoLabel($estado),
-                    "/HelpDesk_EQF/modules/dashboard/analyst/analyst.php?open_ticket={$ticketId}"
-                );
+                notify_user($pdo, $aid, 'ticket_status', 'Estado actualizado', "El ticket #{$ticketId} cambió a: " . estadoLabel($estado), "/HelpDesk_EQF/modules/dashboard/analyst/analyst.php?open_ticket={$ticketId}");
             }
 
-            // Si se resolvió o cerró, notificar al dueño (si existe)
             if (($estado === 'resuelto' || $estado === 'cerrado') && $ticketOwnerId > 0) {
-                notify_user(
-                    $pdo,
-                    $ticketOwnerId,
-                    'ticket_status',
-                    'Tu ticket fue actualizado',
-                    "Tu ticket #{$ticketId} cambió a: " . estadoLabel($estado),
-                    "/HelpDesk_EQF/modules/dashboard/user/user.php?open_ticket={$ticketId}"
-                );
+                notify_user($pdo, $ticketOwnerId, 'ticket_status', 'Tu ticket fue actualizado', "Tu ticket #{$ticketId} cambió a: " . estadoLabel($estado), "/HelpDesk_EQF/modules/dashboard/user/user.php?open_ticket={$ticketId}");
             }
 
             $pdo->commit();
-
             $_SESSION['flash_ok'] = "Estado del ticket #{$ticketId} actualizado.";
             redirectSelf();
 
@@ -264,9 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // -----------------------------
-    // 3) Canalizar PRO
-    // -----------------------------
+    // Canalizar PRO
     if ($accion === 'canalizar') {
         $nuevaArea = trim($_POST['nueva_area'] ?? '');
         $motivo    = trim($_POST['motivo'] ?? '');
@@ -282,33 +241,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash_err'] = "El ticket ya pertenece a tu área.";
             redirectSelf();
         }
-        if ($motivo !== '' && mb_strlen($motivo) > 255) {
-            $motivo = mb_substr($motivo, 0, 255);
-        }
 
         try {
             $pdo->beginTransaction();
 
-            // A) Registro de transferencia
-            $stmtIns = $pdo->prepare("
-                INSERT INTO ticket_transfers (ticket_id, from_area, to_area, admin_id, motivo, created_at)
-                VALUES (:ticket_id, :from_area, :to_area, :admin_id, :motivo, NOW())
-            ");
+            $stmtIns = $pdo->prepare("INSERT INTO ticket_transfers (ticket_id, from_area, to_area, admin_id, motivo, created_at) VALUES (:ticket_id, :from_area, :to_area, :admin_id, :motivo, NOW())");
             $stmtIns->execute([
                 ':ticket_id' => $ticketId,
                 ':from_area' => $areaAdmin,
                 ':to_area'   => $nuevaArea,
                 ':admin_id'  => $userId,
-                ':motivo'    => ($motivo !== '' ? $motivo : null),
+                ':motivo'    => ($motivo !== '' ? mb_substr($motivo, 0, 255) : null),
             ]);
             $transferId = (int)$pdo->lastInsertId();
 
-            // B) Copiar historial del chat a ticket_transfer_messages
             $stmtMsg = $pdo->prepare("
-                SELECT tm.sender_role,
-                       CONCAT(COALESCE(u.name,''),' ',COALESCE(u.last_name,'')) AS sender_name,
-                       tm.mensaje AS message,
-                       tm.created_at
+                SELECT tm.sender_role, CONCAT(COALESCE(u.name,''),' ',COALESCE(u.last_name,'')) AS sender_name, tm.mensaje AS message, tm.created_at
                 FROM ticket_messages tm
                 LEFT JOIN users u ON u.id = tm.sender_id
                 WHERE tm.ticket_id = :ticket_id
@@ -318,12 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msgs = $stmtMsg->fetchAll(PDO::FETCH_ASSOC);
 
             if (!empty($msgs)) {
-                $stmtMsgIns = $pdo->prepare("
-                    INSERT INTO ticket_transfer_messages
-                    (transfer_id, ticket_id, sender_role, sender_name, message, created_at)
-                    VALUES
-                    (:transfer_id, :ticket_id, :sender_role, :sender_name, :message, :created_at)
-                ");
+                $stmtMsgIns = $pdo->prepare("INSERT INTO ticket_transfer_messages (transfer_id, ticket_id, sender_role, sender_name, message, created_at) VALUES (:transfer_id, :ticket_id, :sender_role, :sender_name, :message, :created_at)");
                 foreach ($msgs as $m) {
                     $stmtMsgIns->execute([
                         ':transfer_id' => $transferId,
@@ -336,24 +279,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // C) Copiar adjuntos (ticket_attachments) -> ticket_transfer_files
             if ($copiarAdj) {
-                $stmtFiles = $pdo->prepare("
-                    SELECT nombre_archivo, ruta_archivo, tipo, subido_en
-                    FROM ticket_attachments
-                    WHERE ticket_id = :ticket_id
-                    ORDER BY subido_en ASC
-                ");
+                $stmtFiles = $pdo->prepare("SELECT nombre_archivo, ruta_archivo, tipo, subido_en FROM ticket_attachments WHERE ticket_id = :ticket_id ORDER BY subido_en ASC");
                 $stmtFiles->execute([':ticket_id' => $ticketId]);
                 $files = $stmtFiles->fetchAll(PDO::FETCH_ASSOC);
 
                 if (!empty($files)) {
-                    $stmtFileIns = $pdo->prepare("
-                        INSERT INTO ticket_transfer_files
-                        (transfer_id, ticket_id, file_name, file_path, mime_type, created_at)
-                        VALUES
-                        (:transfer_id, :ticket_id, :file_name, :file_path, :mime_type, :created_at)
-                    ");
+                    $stmtFileIns = $pdo->prepare("INSERT INTO ticket_transfer_files (transfer_id, ticket_id, file_name, file_path, mime_type, created_at) VALUES (:transfer_id, :ticket_id, :file_name, :file_path, :mime_type, :created_at)");
                     foreach ($files as $f) {
                         $stmtFileIns->execute([
                             ':transfer_id' => $transferId,
@@ -367,51 +299,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // D) Actualizar ticket (mover área + trazabilidad en tickets)
-            $stmtUp = $pdo->prepare("
-                UPDATE tickets
-                SET area = :nueva_area,
-                    asignado_a = NULL,
-                    estado = 'abierto',
-                    transferred_from_area = :from_area,
-                    transferred_by = :by_admin,
-                    transferred_at = NOW()
-                WHERE id = :tid
-                  AND area = :area_actual
-            ");
-            $stmtUp->execute([
-                ':nueva_area'  => $nuevaArea,
-                ':from_area'   => $areaAdmin,
-                ':by_admin'    => $userId,
-                ':tid'         => $ticketId,
-                ':area_actual' => $areaAdmin,
-            ]);
+            $stmtUp = $pdo->prepare("UPDATE tickets SET area = :nueva_area, asignado_a = NULL, estado = 'abierto', transferred_from_area = :from_area, transferred_by = :by_admin, transferred_at = NOW() WHERE id = :tid AND area = :area_actual");
+            $stmtUp->execute([':nueva_area' => $nuevaArea, ':from_area' => $areaAdmin, ':by_admin' => $userId, ':tid' => $ticketId, ':area_actual' => $areaAdmin]);
 
-            // E) Notificar a Admin + Analistas del área destino
-            $stmtUsers = $pdo->prepare("
-                SELECT id
-                FROM users
-                WHERE area = :area
-                  AND rol IN (2,3)
-            ");
+            $stmtUsers = $pdo->prepare("SELECT id FROM users WHERE area = :area AND rol IN (2,3)");
             $stmtUsers->execute([':area' => $nuevaArea]);
             $destinatarios = $stmtUsers->fetchAll(PDO::FETCH_COLUMN);
 
-            $body  = "Ticket #{$ticketId} canalizado a tu área ({$nuevaArea}).";
+            $body = "Ticket #{$ticketId} canalizado a tu área ({$nuevaArea}).";
             if (!empty($motivo)) $body .= " Motivo: {$motivo}";
 
-            notify_many(
-                $pdo,
-                $destinatarios,
-                'ticket_transfer',
-                'Ticket canalizado',
-                $body,
-                "/HelpDesk_EQF/modules/dashboard/admin/tickets_area.php?estado=abierto"
-            );
+            notify_many($pdo, $destinatarios, 'ticket_transfer', 'Ticket canalizado', $body, "/HelpDesk_EQF/modules/dashboard/admin/tickets_area.php?estado=abierto");
 
             $pdo->commit();
-
-            $_SESSION['flash_ok'] = "Ticket #{$ticketId} canalizado a {$nuevaArea} (PRO) y se guardó trazabilidad.";
+            $_SESSION['flash_ok'] = "Ticket #{$ticketId} canalizado a {$nuevaArea}.";
             redirectSelf();
 
         } catch (Throwable $e) {
@@ -425,62 +326,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirectSelf();
 }
 
-// -----------------------------
 // Analistas del área (para asignar)
-// -----------------------------
-$stmtAnalysts = $pdo->prepare("
-  SELECT id, name, last_name
-  FROM users
-  WHERE rol = 3 AND area = :area
-  ORDER BY last_name ASC, name ASC
-");
+$stmtAnalysts = $pdo->prepare("SELECT id, name, last_name FROM users WHERE rol = 3 AND area = :area ORDER BY last_name ASC, name ASC");
 $stmtAnalysts->execute([':area' => $areaAdmin]);
 $areaAnalysts = $stmtAnalysts->fetchAll(PDO::FETCH_ASSOC);
 
-// -----------------------------
-// Filtros (GET)
-// -----------------------------
+// Filtros
 $estadoFiltro    = $_GET['estado']    ?? 'todos';
 $prioridadFiltro = $_GET['prioridad'] ?? 'todas';
+$desdeFiltro     = $_GET['desde']     ?? '';
+$hastaFiltro     = $_GET['hasta']     ?? '';
 $soloSinAnalista = isset($_GET['sin_asignar']);
 
-// Query base
 $sql = "
-    SELECT 
-        t.id,
-        t.sap,
-        t.nombre,
-        t.email,
-        t.problema,
-        t.descripcion,
-        t.fecha_envio,
-        t.estado,
-        t.prioridad,
-        t.asignado_a,
-        a.name      AS analyst_name,
-        a.last_name AS analyst_last
+    SELECT t.id, t.sap, t.nombre, t.email, t.equipo_area, t.problema, t.descripcion, t.fecha_envio, t.estado, t.prioridad, t.asignado_a,
+           a.name AS analyst_name, a.last_name AS analyst_last
     FROM tickets t
     LEFT JOIN users a ON a.id = t.asignado_a AND a.rol = 3
     WHERE t.area = :areaX
 ";
 $params = [':areaX' => $areaAdmin];
 
-if ($estadoFiltro !== '' && $estadoFiltro !== 'todos') {
-    $sql .= " AND t.estado = :estadoX";
-    $params[':estadoX'] = $estadoFiltro;
-}
-
-if ($prioridadFiltro !== '' && $prioridadFiltro !== 'todas') {
-    $sql .= " AND t.prioridad = :prioridadX";
-    $params[':prioridadX'] = $prioridadFiltro;
-}
-
-if ($soloSinAnalista) {
-    $sql .= " AND (t.asignado_a IS NULL OR t.asignado_a = 0)";
-}
+if ($estadoFiltro !== '' && $estadoFiltro !== 'todos') { $sql .= " AND t.estado = :estadoX"; $params[':estadoX'] = $estadoFiltro; }
+if ($prioridadFiltro !== '' && $prioridadFiltro !== 'todas') { $sql .= " AND t.prioridad = :prioridadX"; $params[':prioridadX'] = $prioridadFiltro; }
+if ($desdeFiltro !== '') { $sql .= " AND t.fecha_envio >= :desdeX"; $params[':desdeX'] = $desdeFiltro . ' 00:00:00'; }
+if ($hastaFiltro !== '') { $sql .= " AND t.fecha_envio <= :hastaX"; $params[':hastaX'] = $hastaFiltro . ' 23:59:59'; }
+if ($soloSinAnalista) { $sql .= " AND (t.asignado_a IS NULL OR t.asignado_a = 0)"; }
 
 $sql .= " ORDER BY t.fecha_envio DESC";
-
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -505,76 +378,56 @@ include __DIR__ . '/../../../template/sidebar.php';
         <p class="login-brand">
           <span>HelpDesk </span><span class="eqf-e">E</span><span class="eqf-q">Q</span><span class="eqf-f">F</span>
         </p>
-        <p class="user-main-subtitle">
-          Tickets de mi área – <?php echo h($areaAdmin); ?>
-        </p>
+        <p class="user-main-subtitle">Tickets de mi área – <?php echo h($areaAdmin); ?></p>
       </div>
     </header>
 
     <section class="user-main-content">
+      <?php if ($mensajeExito): ?> <div class="alert alert-success"><?php echo h($mensajeExito); ?></div> <?php endif; ?>
+      <?php if ($mensajeError): ?> <div class="alert alert-danger"><?php echo h($mensajeError); ?></div> <?php endif; ?>
 
-      <?php if ($mensajeExito): ?>
-        <div class="alert alert-success"><?php echo h($mensajeExito); ?></div>
-      <?php endif; ?>
-      <?php if ($mensajeError): ?>
-        <div class="alert alert-danger"><?php echo h($mensajeError); ?></div>
-      <?php endif; ?>
-
-      <form method="get" class="user-filters-row">
+      <form method="get" class="user-filters-row" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+        <div class="form-group">
+          <label for="desde">Desde</label>
+          <input type="date" name="desde" id="desde" value="<?php echo h($desdeFiltro); ?>">
+        </div>
+        <div class="form-group">
+          <label for="hasta">Hasta</label>
+          <input type="date" name="hasta" id="hasta" value="<?php echo h($hastaFiltro); ?>">
+        </div>
         <div class="form-group">
           <label for="estado">Estado</label>
           <select name="estado" id="estado">
-            <?php
-            $estados = [
-              'todos'      => 'Todos',
-              'abierto'    => 'Abierto',
-              'en_proceso' => 'En proceso',
-              'resuelto'   => 'Resuelto',
-              'cerrado'    => 'Cerrado',
-            ];
+            <?php $estados = ['todos' => 'Todos', 'abierto' => 'Abierto', 'en_proceso' => 'En proceso', 'resuelto' => 'Resuelto', 'cerrado' => 'Cerrado'];
             foreach ($estados as $value => $label): ?>
-              <option value="<?php echo h($value); ?>" <?php if ($estadoFiltro === $value) echo 'selected'; ?>>
-                <?php echo h($label); ?>
-              </option>
+              <option value="<?php echo h($value); ?>" <?php if ($estadoFiltro === $value) echo 'selected'; ?>><?php echo h($label); ?></option>
             <?php endforeach; ?>
           </select>
         </div>
-
         <div class="form-group">
           <label for="prioridad">Prioridad</label>
           <select name="prioridad" id="prioridad">
-            <?php
-            $prioridades = [
-              'todas' => 'Todas',
-              'baja'  => 'Baja',
-              'media' => 'Media',
-              'alta'  => 'Alta',
-            ];
+            <?php $prioridades = ['todas' => 'Todas', 'baja' => 'Baja', 'media' => 'Media', 'alta' => 'Alta'];
             foreach ($prioridades as $value => $label): ?>
-              <option value="<?php echo h($value); ?>" <?php if ($prioridadFiltro === $value) echo 'selected'; ?>>
-                <?php echo h($label); ?>
-              </option>
+              <option value="<?php echo h($value); ?>" <?php if ($prioridadFiltro === $value) echo 'selected'; ?>><?php echo h($label); ?></option>
             <?php endforeach; ?>
           </select>
         </div>
-
-        <div class="form-group form-group-inline">
-          <label>
-            <input type="checkbox" name="sin_asignar" value="1" <?php if ($soloSinAnalista) echo 'checked'; ?>>
-            Sin analista
-          </label>
+        <div class="form-group form-group-inline" style="margin-bottom: 8px;">
+          <label><input type="checkbox" name="sin_asignar" value="1" <?php if ($soloSinAnalista) echo 'checked'; ?>> Sin analista</label>
         </div>
-
-        <button type="submit" class="btn-primary">Aplicar</button>
+        <div style="display: flex; gap: 10px;">
+          <button type="submit" class="btn-primary">Aplicar</button>
+          <button type="button" class="btn-green" onclick="window.open('/HelpDesk_EQF/modules/reports/generate_viso_report.php?' + $('.user-filters-row').serialize(), '_blank')">Generar reporte</button>
+        </div>
       </form>
 
-      <div class="user-tickets-table-wrapper">
+      <div class="user-tickets-table-wrapper" style="margin-top: 20px;">
         <table id="adminTicketsAreaTable" class="data-table display">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Fecha</th>
-              <th>Usuario</th>
+              <th>Ticket #</th>
+              <th>Sucursal</th>
               <th>Problema</th>
               <th>Prioridad</th>
               <th>Estatus</th>
@@ -584,64 +437,83 @@ include __DIR__ . '/../../../template/sidebar.php';
           </thead>
           <tbody>
           <?php foreach ($tickets as $t): ?>
-            <?php $hasAnalyst = ((int)($t['asignado_a'] ?? 0) > 0); ?>
+            <?php 
+                $hasAnalyst = ((int)($t['asignado_a'] ?? 0) > 0); 
+                $sucursal = '—';
+                if (!empty($t['email'])) {
+                    $partes = explode('@', $t['email']);
+                    $sucursal = strtoupper($partes[0]);
+                }
+            ?>
             <tr>
-              <td><?php echo (int)$t['id']; ?></td>
-              <td><?php echo h($t['fecha_envio'] ?? ''); ?></td>
-              <td>
-                <?php echo h(trim(($t['sap'] ?? '') . ' ' . ($t['nombre'] ?? ''))); ?><br>
-                <small><?php echo h($t['email'] ?? ''); ?></small>
-              </td>
+              <td><strong>#<?php echo (int)$t['id']; ?></strong></td>
+              <td><strong><?php echo h($sucursal); ?></strong></td>
               <td><?php echo h(problemaLabel((string)$t['problema'])); ?></td>
               <td><?php echo h(prioridadLabel($t['prioridad'] ?? null)); ?></td>
-              <td><?php echo h(estadoLabel($t['estado'] ?? null)); ?></td>
               <td>
-                <?php
-                if (!empty($t['analyst_name'])) {
-                  echo h($t['analyst_name'] . ' ' . $t['analyst_last']);
-                } else {
-                  echo 'Sin asignar';
-                }
-                ?>
+                <span style="cursor:pointer; text-decoration:underline;" onclick="openStateModal(<?php echo (int)$t['id']; ?>, '<?php echo h($t['estado'] ?? 'abierto'); ?>')">
+                    <?php echo h(estadoLabel($t['estado'] ?? null)); ?> ⚙️
+                </span>
+              </td>
+              <td>
+                <?php echo !empty($t['analyst_name']) ? h($t['analyst_name'] . ' ' . $t['analyst_last']) : '<em style="color:red;">Sin asignar</em>'; ?>
               </td>
               <td class="actions-inline">
-  <button type="button" class="task-link-combined"
-    onclick="openAssignModal(<?php echo (int)$t['id']; ?>, <?php echo (int)($t['asignado_a'] ?? 0); ?>)">
-    <?php echo $hasAnalyst ? 'Reasignar' : 'Asignar'; ?>
-  </button>
-
-<span class="actions-sep">|</span>
-  <button type="button" class="task-cancel-link"
-    onclick="openCanalizarModal(<?php echo (int)$t['id']; ?>)">
-    Canalizar
-  </button>
-</td>
+                <!-- BOTÓN VER ADYACENTE -->
+                <button type="button" class="task-link-blue" onclick="openViewTicketModal(<?php echo (int)$t['id']; ?>)">
+                  Ver
+                </button>
+                <span class="actions-sep">|</span>
+                <button type="button" class="task-link-combined" onclick="openAssignModal(<?php echo (int)$t['id']; ?>, <?php echo (int)($t['asignado_a'] ?? 0); ?>)">
+                  <?php echo $hasAnalyst ? 'Reasignar' : 'Asignar'; ?>
+                </button>
+                <span class="actions-sep">|</span>
+                <button type="button" class="task-cancel-link" onclick="openCanalizarModal(<?php echo (int)$t['id']; ?>)">
+                  Canalizar
+                </button>
+              </td>
             </tr>
           <?php endforeach; ?>
           </tbody>
         </table>
       </div>
-
     </section>
   </section>
 </main>
 
-<!-- MODAL: Asignar -->
-<div class="user-modal-backdrop" id="assignModal" style="display:none;">
-  <div class="user-modal">
+<!-- MODAL: VER DETALLES (Muestra Sucursal, Descripcion, Fecha Envio, Analista + Controles de Cambio) -->
+<div class="user-modal-backdrop" id="viewTicketModal" style="display:none;">
+  <div class="user-modal" style="max-width: 550px;">
     <header class="user-modal-header">
-      <h2 id="assignModalTitle">Asignar ticket</h2>
-      <button type="button" class="user-modal-close" onclick="closeAssignModal()">✕</button>
+      <h2 id="viewModalTitle">Detalles del Ticket</h2>
+      <button type="button" class="user-modal-close" onclick="closeViewTicketModal()">✕</button>
     </header>
 
-    <form method="POST">
-      <input type="hidden" name="accion" value="asignar">
-      <input type="hidden" name="ticket_id" id="assign_ticket_id" value="">
+    <form method="POST" action="">
+      <input type="hidden" name="accion" value="actualizar_desde_ver">
+      <input type="hidden" name="ticket_id" id="view_ticket_id" value="">
 
+      <!-- Bloque informativo filtrado -->
+      <div id="view_ticket_info" style="margin-bottom: 15px; font-size: 14px; line-height: 1.6; border-bottom: 1px solid #ddd; padding-bottom: 12px;">
+         <!-- Inyectado vía JS -->
+      </div>
+
+      <!-- Selección de Estado -->
       <div class="form-group">
-        <label for="assign_analyst_id">Analista</label>
-        <select name="analyst_id" id="assign_analyst_id" required>
-          <option value="">Selecciona un analista</option>
+        <label for="view_estado">Estatus del Ticket</label>
+        <select name="estado" id="view_estado" required>
+          <option value="abierto">Abierto</option>
+          <option value="en_proceso">En proceso</option>
+          <option value="resuelto">Resuelto</option>
+          <option value="cerrado">Cerrado</option>
+        </select>
+      </div>
+
+      <!-- Selección de Analista -->
+      <div class="form-group">
+        <label for="view_analyst_id">Analista Asignado</label>
+        <select name="analyst_id" id="view_analyst_id">
+          <option value="">Dejar sin asignar / Sin cambios</option>
           <?php foreach ($areaAnalysts as $a): ?>
             <option value="<?php echo (int)$a['id']; ?>">
               <?php echo h(($a['last_name'] ?? '') . ' ' . ($a['name'] ?? '')); ?>
@@ -651,11 +523,42 @@ include __DIR__ . '/../../../template/sidebar.php';
       </div>
 
       <div class="form-group">
-        <label for="assign_motivo">Motivo (opcional)</label>
-        <input type="text" name="motivo" id="assign_motivo" maxlength="255" placeholder="Ej: carga alta, especialista, seguimiento...">
+        <label for="view_motivo">Motivo del cambio (Opcional)</label>
+        <input type="text" name="motivo" id="view_motivo" maxlength="255" placeholder="Ej: reasignación por guardia...">
       </div>
 
-      <div style="display:flex; gap:10px; justify-content:flex-end; align-items: stretch; margin-top:12px;">
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+        <button type="button" class="btn-secondary" onclick="closeViewTicketModal()">Cerrar</button>
+        <button type="submit" class="btn-primary">Guardar Cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modales Auxiliares -->
+<div class="user-modal-backdrop" id="assignModal" style="display:none;">
+  <div class="user-modal">
+    <header class="user-modal-header">
+      <h2 id="assignModalTitle">Asignar ticket</h2>
+      <button type="button" class="user-modal-close" onclick="closeAssignModal()">✕</button>
+    </header>
+    <form method="POST" action="">
+      <input type="hidden" name="accion" value="asignar">
+      <input type="hidden" name="ticket_id" id="assign_ticket_id" value="">
+      <div class="form-group">
+        <label for="assign_analyst_id">Analista</label>
+        <select name="analyst_id" id="assign_analyst_id" required>
+          <option value="">Selecciona un analista</option>
+          <?php foreach ($areaAnalysts as $a): ?>
+            <option value="<?php echo (int)$a['id']; ?>"><?php echo h(($a['last_name'] ?? '') . ' ' . ($a['name'] ?? '')); ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="assign_motivo">Motivo (opcional)</label>
+        <input type="text" name="motivo" id="assign_motivo" maxlength="255" placeholder="Ej: carga alta...">
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
         <button type="button" class="btn-secondary" onclick="closeAssignModal()">Cancelar</button>
         <button type="submit" class="btn-primary">Guardar</button>
       </div>
@@ -663,18 +566,15 @@ include __DIR__ . '/../../../template/sidebar.php';
   </div>
 </div>
 
-<!-- MODAL: Estado -->
 <div class="user-modal-backdrop" id="stateModal" style="display:none;">
   <div class="user-modal">
     <header class="user-modal-header">
       <h2>Cambiar estado</h2>
       <button type="button" class="user-modal-close" onclick="closeStateModal()">✕</button>
     </header>
-
     <form method="POST">
       <input type="hidden" name="accion" value="estado">
       <input type="hidden" name="ticket_id" id="state_ticket_id" value="">
-
       <div class="form-group">
         <label for="state_value">Estado</label>
         <select name="estado" id="state_value" required>
@@ -684,7 +584,6 @@ include __DIR__ . '/../../../template/sidebar.php';
           <option value="cerrado">Cerrado</option>
         </select>
       </div>
-
       <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
         <button type="button" class="btn-secondary" onclick="closeStateModal()">Cancelar</button>
         <button type="submit" class="btn-primary">Guardar</button>
@@ -693,18 +592,15 @@ include __DIR__ . '/../../../template/sidebar.php';
   </div>
 </div>
 
-<!-- MODAL: Canalizar -->
 <div class="user-modal-backdrop" id="canalizarModal" style="display:none;">
   <div class="user-modal">
     <header class="user-modal-header">
       <h2>Canalizar ticket</h2>
       <button type="button" class="user-modal-close" onclick="closeCanalizarModal()">✕</button>
     </header>
-
     <form method="POST">
       <input type="hidden" name="accion" value="canalizar">
       <input type="hidden" name="ticket_id" id="canalizar_ticket_id" value="">
-
       <div class="form-group">
         <label for="nueva_area">Enviar a área</label>
         <select name="nueva_area" id="nueva_area" required>
@@ -714,24 +610,13 @@ include __DIR__ . '/../../../template/sidebar.php';
           <option value="MKT">MKT</option>
         </select>
       </div>
-
       <div class="form-group">
         <label for="motivo">Motivo (opcional)</label>
-        <textarea name="motivo" id="motivo" rows="3" maxlength="255"
-          placeholder="Ej: Se requiere apoyo de SAP por error de cierre del día."></textarea>
+        <textarea name="motivo" id="motivo" rows="3" maxlength="255"></textarea>
       </div>
-
       <div class="form-group form-group-inline">
-        <label>
-          <input type="checkbox" name="copiar_adjuntos" value="1" checked>
-          Copiar adjuntos al traspaso
-        </label>
+        <label><input type="checkbox" name="copiar_adjuntos" value="1" checked> Copiar adjuntos al traspaso</label>
       </div>
-
-      <p class="admin-task-meta" style="margin-top:10px;">
-        Al canalizar: el ticket se mueve al área destino, se limpia el analista y se reabre como “abierto”.
-      </p>
-
       <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
         <button type="button" class="btn-secondary" onclick="closeCanalizarModal()">Cancelar</button>
         <button type="submit" class="btn-primary">Canalizar</button>
@@ -746,64 +631,72 @@ include __DIR__ . '/../../../template/sidebar.php';
 $(function () {
   $('#adminTicketsAreaTable').DataTable({
     pageLength: 10,
-    order: [[1, 'desc']]
+    order: [[0, 'desc']]
   });
 });
 
-// Assign modal
+function openViewTicketModal(ticketId) {
+  document.getElementById('view_ticket_id').value = ticketId;
+  document.getElementById('viewModalTitle').textContent = 'Cargando Ticket #' + ticketId + '...';
+  document.getElementById('view_ticket_info').innerHTML = 'Por favor, espere...';
+  document.getElementById('viewTicketModal').style.display = 'flex';
+
+  $.getJSON(window.location.pathname, { action: 'get_ticket_details', ticket_id: ticketId }, function(data) {
+      if(data.error) {
+          document.getElementById('view_ticket_info').innerHTML = '<span style="color:red;">Error al procesar los datos del ticket.</span>';
+          return;
+      }
+      document.getElementById('viewModalTitle').textContent = 'Ticket #' + data.id;
+      
+      // Renderizado exclusivo de los 4 datos requeridos
+      let infoHtml = `
+        <p><strong>Sucursal:</strong> <span style="text-transform: uppercase; font-weight: bold;">${data.sucursal}</span></p>
+        <p><strong>Descripción:</strong> ${data.descripcion || '<em>Sin descripción disponible</em>'}</p>
+        <p><strong>Fecha de envío:</strong> ${data.fecha_envio}</p>
+        <p><strong>Analista actual:</strong> ${data.analyst_name ? (data.analyst_name + ' ' + data.analyst_last) : '<em style="color:red;">Sin asignar</em>'}</p>
+      `;
+      document.getElementById('view_ticket_info').innerHTML = infoHtml;
+      
+      // Mapeo automático de valores actuales a los controles editables
+      document.getElementById('view_estado').value = data.estado;
+      document.getElementById('view_analyst_id').value = data.asignado_a || "";
+      document.getElementById('view_motivo').value = "";
+  });
+}
+function closeViewTicketModal() { document.getElementById('viewTicketModal').style.display = 'none'; }
+
 function openAssignModal(ticketId, analystId){
   document.getElementById('assign_ticket_id').value = ticketId;
   document.getElementById('assign_analyst_id').value = (analystId && analystId > 0) ? String(analystId) : "";
   document.getElementById('assign_motivo').value = "";
-
   const title = document.getElementById('assignModalTitle');
   title.textContent = (analystId && analystId > 0) ? ('Reasignar ticket #' + ticketId) : ('Asignar ticket #' + ticketId);
-
   document.getElementById('assignModal').style.display = 'flex';
-  document.body.style.overflow = 'hidden';
 }
-function closeAssignModal(){
-  document.getElementById('assignModal').style.display = 'none';
-  document.body.style.overflow = '';
-}
+function closeAssignModal(){ document.getElementById('assignModal').style.display = 'none'; }
 
-// State modal
 function openStateModal(ticketId, estado){
   document.getElementById('state_ticket_id').value = ticketId;
   document.getElementById('state_value').value = estado || 'abierto';
   document.getElementById('stateModal').style.display = 'flex';
-  document.body.style.overflow = 'hidden';
 }
-function closeStateModal(){
-  document.getElementById('stateModal').style.display = 'none';
-  document.body.style.overflow = '';
-}
+function closeStateModal(){ document.getElementById('stateModal').style.display = 'none'; }
 
-// Canalizar modal
 function openCanalizarModal(ticketId){
   document.getElementById('canalizar_ticket_id').value = ticketId;
   document.getElementById('nueva_area').value = "";
   document.getElementById('motivo').value = "";
   document.getElementById('canalizarModal').style.display = 'flex';
-  document.body.style.overflow = 'hidden';
 }
-function closeCanalizarModal(){
-  document.getElementById('canalizarModal').style.display = 'none';
-  document.body.style.overflow = '';
-}
+function closeCanalizarModal(){ document.getElementById('canalizarModal').style.display = 'none'; }
 
-// cerrar al click fuera
 document.addEventListener('click', function(e){
-  const a = document.getElementById('assignModal');
-  const s = document.getElementById('stateModal');
-  const c = document.getElementById('canalizarModal');
-
-  if (a && e.target === a) closeAssignModal();
-  if (s && e.target === s) closeStateModal();
-  if (c && e.target === c) closeCanalizarModal();
+  if (e.target === document.getElementById('assignModal')) closeAssignModal();
+  if (e.target === document.getElementById('stateModal')) closeStateModal();
+  if (e.target === document.getElementById('canalizarModal')) closeCanalizarModal();
+  if (e.target === document.getElementById('viewTicketModal')) closeViewTicketModal();
 });
 </script>
-
 
 <?php include __DIR__ . '/../../../template/footer.php'; ?>
 </body>

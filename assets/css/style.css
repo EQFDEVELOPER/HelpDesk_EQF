@@ -8,6 +8,7 @@
   --eqf-yellow: #F2C94C;
   --eqf-combined: #6e1c5c;
   --eqf-combined-light: #a02f87;
+  --eqf-orange: #E6641F;
   --eqf-red-dark: #7f1d1d;
   --eqf-status-gray: #AAAAAA;
   --eqf-bg: #f4f6fb;
@@ -322,6 +323,7 @@ body {
 .btn-primary,
 .btn-secondary,
 .btn-main-combined,
+.btn-green,
 .btn-white {
   height: 40px;
   width: 150px;
@@ -1363,6 +1365,11 @@ body.sidebar-collapsed .user-main {
 
 .btn-secondary {
   background-color: var(--eqf-red);
+  color: #ffffff;
+}
+
+.btn-green {
+  background-color: var(--eqf-green);
   color: #ffffff;
 }
 
@@ -3968,4 +3975,80 @@ MANTENIMIENTO
   background: none !important;
   border: none !important;
   cursor: pointer !important;
+}
+
+/* =========================================
+   FILTROS TICKETS ADMIN
+========================================= */
+
+.user-filters-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+
+  background: #f5f5f5;
+  padding: 18px 22px;
+  border-radius: 18px;
+  margin-bottom: 20px;
+}
+
+/* cada bloque */
+.user-filters-row .form-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+}
+
+/* checkbox */
+.user-filters-row .form-group-inline {
+  min-width: auto;
+  justify-content: flex-end;
+  padding-bottom: 10px;
+}
+
+.user-filters-row label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #4b5563;
+}
+
+/* inputs y selects */
+.user-filters-row select,
+.user-filters-row input[type="date"] {
+  height: 44px;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 0 14px;
+  background: #fff;
+  min-width: 180px;
+}
+
+/* botón aplicar */
+.user-filters-row .btn-primary {
+  height: 44px;
+  min-width: 140px;
+  border-radius: 14px;
+  align-self: flex-end;
+}
+
+.filters-actions {
+  margin-left: auto;
+
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.filters-actions .btn-primary,
+.filters-actions .btn-green {
+  height: 44px;
+  min-width: 160px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 14px;
 }

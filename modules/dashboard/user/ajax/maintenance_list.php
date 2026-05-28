@@ -29,37 +29,60 @@ try {
         'aux.proyectos@eqf.mx'
     ];
 
-    // PROYECTOS VE TODO
+    /* =========================================
+       PROYECTOS VE TODO
+    ========================================== */
+
     if (in_array($userEmail, $allowedEmails, true)) {
 
         $sql = "
             SELECT
-                id,
-                requester_email,
-                title,
-                description,
-                status,
-                created_at
-            FROM maintenance_requests
-            ORDER BY id DESC
+                mr.id,
+                mr.requester_email,
+                mr.title,
+                mr.description,
+                mr.status,
+                mr.created_at,
+
+                mf.token AS feedback_token,
+                mf.answered_at
+
+            FROM maintenance_requests mr
+
+            LEFT JOIN maintenance_feedback mf
+                ON mf.maintenance_request_id = mr.id
+
+            ORDER BY mr.id DESC
         ";
 
         $stmt = $conn->prepare($sql);
 
     } else {
 
-        // USUARIO NORMAL → SOLO SUS SOLICITUDES
+        /* =========================================
+           USUARIO NORMAL → SOLO SUS SOLICITUDES
+        ========================================== */
+
         $sql = "
             SELECT
-                id,
-                requester_email,
-                title,
-                description,
-                status,
-                created_at
-            FROM maintenance_requests
-            WHERE LOWER(requester_email) = :email
-            ORDER BY id DESC
+                mr.id,
+                mr.requester_email,
+                mr.title,
+                mr.description,
+                mr.status,
+                mr.created_at,
+
+                mf.token AS feedback_token,
+                mf.answered_at
+
+            FROM maintenance_requests mr
+
+            LEFT JOIN maintenance_feedback mf
+                ON mf.maintenance_request_id = mr.id
+
+            WHERE LOWER(mr.requester_email) = :email
+
+            ORDER BY mr.id DESC
         ";
 
         $stmt = $conn->prepare($sql);

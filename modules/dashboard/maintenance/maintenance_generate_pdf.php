@@ -426,7 +426,13 @@ $dompdf = new Dompdf($options);
 $dompdf->loadHtml($html);
 $dompdf->setPaper('letter', 'portrait');
 $dompdf->render();
- 
+ $stmtPdf = $conn->prepare("
+    UPDATE maintenance_requests
+    SET pdf_generated = 1
+    WHERE id = ?
+");
+
+$stmtPdf->execute([$id]);
 $dompdf->stream(
     'solicitud_mantenimiento_' . $id . '.pdf',
     ['Attachment' => false]

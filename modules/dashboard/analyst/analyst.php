@@ -755,7 +755,29 @@ if (strcasecmp(trim($userArea), 'TI') !== 0) {
               <input type="checkbox" id="ticketChatInternal" value="1">
               <label for="ticketChatInternal" style="font-size:13px; opacity:.85;">
                 Nota               </label>
+
             </div>
+                            <div class="row">
+
+<label><input type="checkbox" name="equipo_area[]" value="Caja"> PV</label>
+
+<label><input type="checkbox" name="equipo_area[]" value="Servidor"> Serv</label>
+
+<label><input type="checkbox" name="equipo_area[]" value="Consulta"> Cons</label>
+
+<label><input type="checkbox" name="equipo_area[]" value="Almacen"> Alm</label>
+
+<label><input type="checkbox" name="equipo_area[]" value="Gerencia"> Ger</label>
+
+<label><input type="checkbox" name="equipo_area[]" value="Auxiliar"> Aux</label>
+
+<label><input type="checkbox" name="equipo_area[]" value="Externo"> Externo</label>
+
+<label><input type="checkbox" name="equipo_area[]" value="Celular"> Red movil</label>
+
+<label><input type="checkbox" name="equipo_area[]" value="Corporativo"> Corpo</label>
+
+</div>
 
 <textarea id="ticketChatInput" rows="2" placeholder="Escribe tu mensaje..." style="width:100%"
   onkeydown="ticketChatEnterSend(event)"></textarea>
@@ -1394,6 +1416,10 @@ if (!texto && !file && clipboardFiles.length === 0) return;
   formData.append('interno', isInternal);
   formData.append('ticket_id', currentTicketId);
   formData.append('mensaje', texto);
+  document.querySelectorAll('input[name="equipo_area[]"]:checked')
+.forEach(cb => {
+    formData.append('equipo_area[]', cb.value);
+});
   if (file) formData.append('adjunto', file);
   clipboardFiles.forEach(f => formData.append('clipboard_files[]', f));
 
@@ -1408,6 +1434,8 @@ if (!texto && !file && clipboardFiles.length === 0) return;
       }
       if (!response.ok) { alert('No se pudo enviar el mensaje'); return; }
       input.value = '';
+      document.querySelectorAll('input[name="equipo_area[]"]')
+.forEach(cb => cb.checked = false);
       clipboardFiles = [];
 renderClipboardPreview();
 
