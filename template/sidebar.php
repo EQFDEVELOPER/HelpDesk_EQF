@@ -262,6 +262,10 @@ if ($rol === 3) {
                 <span class="user-menu-text">Solicitar equipo</span>
             </button>
  
+<button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/analyst/activites/activities.php'">
+                <span class="user-menu-icon">✖️</span>
+                <span class="user-menu-text">Actividades</span>
+            </button>
 
             <button type="button" class="user-menu-item" onclick="window.location.href='/HelpDesk_EQF/modules/dashboard/shared/internal_notes.php'">
                 <span class="user-menu-icon">📝</span>

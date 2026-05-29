@@ -53,6 +53,87 @@ $area   = $_SESSION['user_area'] ?? '';
       border-radius:12px; text-decoration:none;
     }
     .task-detail-meta{ display:flex; gap:10px; flex-wrap:wrap; font-size:13px; opacity:.9; margin-bottom:10px; }
+
+    /*ACTIVIDADES EXTRA DIARIAS */
+.activities-container{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:15px;
+}
+
+.activity-row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.activity-input{
+  flex:1;
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid var(--eqf-border,#e5e7eb);
+  outline:none;
+  font-size:14px;
+  background:#fff;
+}
+
+.btn-remove-activity{
+  border:none;
+  background:#c8002d;
+  color:#fff;
+  width:42px;
+  height:42px;
+  border-radius:12px;
+  cursor:pointer;
+  font-weight:900;
+  flex-shrink:0;
+}
+
+.activities-actions{
+  display:flex;
+  gap:10px;
+  margin-top:18px;
+  flex-wrap:wrap;
+}
+
+.btn-activity{
+  border:none;
+  border-radius:12px;
+  padding:12px 18px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.btn-add-activity{
+  background:#14378A;
+  color:#fff;
+}
+
+.btn-send-activity{
+  background:#1E8A4F;
+  color:#fff;
+}
+
+.activity-count-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:28px;
+  height:28px;
+  padding:0 10px;
+  border-radius:999px;
+  background:rgba(20,55,138,.12);
+  font-size:12px;
+  font-weight:900;
+}
+
+.activity-actions{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
   </style>
 </head>
 
@@ -87,9 +168,94 @@ $area   = $_SESSION['user_area'] ?? '';
               <th>Acciones</th>
             </tr>
           </thead>
-          <tbody><!-- AJAX --></tbody>
-        </table>
+          Ahhh entonces ya vi el problema real 😅
+
+Tu contenido SÍ está cargando… pero quedó DENTRO del card de tareas.
+
+O sea, este bloque:
+
+<div class="user-info-card">
+
+NUNCA se cerró correctamente antes de meter actividades.
+
+Entonces todo quedó encapsulado y probablemente el CSS del layout lo está ocultando/rompiendo.
+
+Haz esto EXACTAMENTE.
+
+BUSCA esta parte:
+
+<tbody><!-- AJAX --></tbody>
+</table>
+</div>
+<!-- ACTIVIDADES -->
+
+Y reemplázala COMPLETA por esto:
+
+<tbody><!-- AJAX --></tbody>
+</table>
+
+</div>
+
+<!-- ACTIVIDADES -->
+<div class="user-info-card" style="margin-top:20px;">
+
+  <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;">
+    <div>
+      <h2>Actividades diarias</h2>
+      <p>
+        Registra las actividades realizadas durante el día.
+      </p>
+    </div>
+
+    <div class="activity-count-badge" id="activity-counter">
+      1
+    </div>
+  </div>
+
+  <form id="activitiesForm">
+
+    <div
+      id="activities-container"
+      class="activities-container"
+    >
+
+      <div class="activity-row">
+
+        <input
+          type="text"
+          name="activities[]"
+          class="activity-input"
+          placeholder="Escribe una actividad..."
+          required
+        >
+
       </div>
+
+    </div>
+
+    <div class="activities-actions">
+
+      <button
+        type="button"
+        class="btn-activity btn-add-activity"
+        id="addActivityBtn"
+      >
+        + Agregar actividad
+      </button>
+
+      <button
+        type="submit"
+        class="btn-activity btn-send-activity"
+      >
+        Enviar actividades
+      </button>
+
+    </div>
+
+  </form>
+
+</div>
+
     </section>
 
   </section>
@@ -114,6 +280,60 @@ $area   = $_SESSION['user_area'] ?? '';
     </div>
   </div>
 </div>
+
+<!-- MODAL ACTIVIDADES -->
+<div class="modal-backdrop" id="activities-detail-modal">
+
+  <div class="modal-card" style="max-width:760px;">
+
+    <div class="modal-header">
+
+      <h3 id="activitiesDetailTitle">
+        Detalle de actividades
+      </h3>
+
+      <button
+        type="button"
+        class="modal-close"
+        onclick="closeActivitiesDetail()"
+      >
+        ✕
+      </button>
+
+    </div>
+
+    <div class="modal-body" style="padding:14px 18px;">
+
+      <div id="activitiesDetailContent">
+
+        <div style="opacity:.8;">
+          Cargando...
+        </div>
+
+      </div>
+
+      <div
+        class="modal-actions"
+        style="margin-top:14px; display:flex; gap:10px; justify-content:flex-end;"
+      >
+
+        <button
+          type="button"
+          class="btn-secondary"
+          onclick="closeActivitiesDetail()"
+        >
+          Cerrar
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
 
 <?php include __DIR__ . '/../../../template/footer.php'; ?>
 
@@ -296,5 +516,8 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <script src="/HelpDesk_EQF/assets/js/script.js?v=20251208a"></script>
 <script src="/HelpDesk_EQF/assets/js/sidebar.js?v=20251208a"></script>
+
+<script src="/HelpDesk_EQF/assets/js/activities.js?v=<?php echo time(); ?>"></script>
+
 </body>
 </html>
