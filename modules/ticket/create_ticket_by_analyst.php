@@ -22,10 +22,32 @@ try {
   $userId       = (int)($_POST['user_id'] ?? 0);
   $descUser     = trim((string)($_POST['descripcion'] ?? ''));
   $ticketParaMi = ((int)($_POST['ticket_para_mi'] ?? 0) === 1);
-
+$fechaInicio = trim((string)($_POST['inicio'] ?? ''));
+$fechaFin    = trim((string)($_POST['fin'] ?? ''));
   if ($userId <= 0) throw new Exception('Usuario inválido.');
   if ($descUser === '') throw new Exception('La descripción es obligatoria.');
+if (!$ticketParaMi) {
 
+    if ($fechaInicio === '') {
+        throw new Exception('La fecha de inicio es obligatoria.');
+    }
+
+    if ($fechaFin === '') {
+        throw new Exception('La fecha de término es obligatoria.');
+    }
+
+    $inicioTs = strtotime($fechaInicio);
+    $finTs    = strtotime($fechaFin);
+
+    if (!$inicioTs || !$finTs) {
+        throw new Exception('Las fechas son inválidas.');
+    }
+
+    if ($finTs < $inicioTs) {
+        throw new Exception('La fecha de término no puede ser menor a la fecha de inicio.');
+    }
+
+}
   // ====== FORZADOS ======
   $problema  = 'otro';
   $prioridad = 'media';
@@ -62,12 +84,15 @@ try {
   if ($ticketParaMi) {
     $estado        = 'abierto';
     $needsFeedback = 0;
+    $fechaEnvio    = date('Y-m-d H:i:s');
     $fechaResol    = null;
+  
   } else {
     $estado        = 'cerrado';
     $needsFeedback = 1;
-    $fechaResol    = date('Y-m-d H:i:s');
-  }
+ $fechaEnvio    = date('Y-m-d H:i:s', strtotime($fechaInicio));
+    $fechaResol    = date('Y-m-d H:i:s', strtotime($fechaFin));
+    }
 
   // ✅ ASIGNACIÓN: SIEMPRE AL ANALISTA QUE LO CREÓ
   $asignadoA       = $creatorId;
@@ -107,12 +132,12 @@ try {
        needs_feedback, feedback_done,
        creado_por_ip, creado_por_navegador)
     VALUES
-      (:user_id, :sap, :nombre, :area, :email, :problema, :prioridad, :descripcion,
-       NOW(), :estado,
-       :asignado_a, :fecha_asignacion,
-       :fecha_resolucion,
-       :needs_feedback, 0,
-       :ip, :ua)
+  (:user_id, :sap, :nombre, :area, :email, :problema, :prioridad, :descripcion,
+   :fecha_envio, :estado,
+   :asignado_a, :fecha_asignacion,
+   :fecha_resolucion,
+   :needs_feedback, 0,
+   :ip, :ua)
   ";
 
   $stmt = $pdo->prepare($sql);
@@ -125,6 +150,7 @@ try {
     ':problema'         => $problema,
     ':prioridad'        => $prioridad,
     ':descripcion'      => $descFinal,
+    ':fecha_envio'      => $fechaEnvio,
 
     ':estado'           => $estado,
     ':asignado_a'       => $asignadoA,

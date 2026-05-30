@@ -860,7 +860,25 @@ if (strcasecmp(trim($userArea), 'TI') !== 0) {
         </div>
 
         <hr class="eqf-hr">
+<div class="eqf-grid-2">
 
+    <div class="eqf-field">
+        <label for="ct_inicio">Fecha inicio</label>
+        <input
+            type="datetime-local"
+            id="ct_inicio"
+            class="eqf-input">
+    </div>
+
+    <div class="eqf-field">
+        <label for="ct_fin">Fecha término</label>
+        <input
+            type="datetime-local"
+            id="ct_fin"
+            class="eqf-input">
+    </div>
+
+</div>
         <div class="eqf-field">
           <label for="ct_descripcion">Descripción</label>
           <textarea
@@ -2141,7 +2159,8 @@ if ((window.CURRENT_USER?.area || '') !== 'TI') {
 
     const areaDestino = document.getElementById('ct_area_destino');
     const ticketMi    = document.getElementById('ct_ticket_mi');
-
+const fechaInicio = document.getElementById('ct_inicio');
+const fechaFin    = document.getElementById('ct_fin');
     const txtDesc     = document.getElementById('ct_descripcion');
 
     if (!backdrop || !form || !msg || !btnSubmit || !emailInput || !datalist || !areaDestino || !txtDesc) {
@@ -2392,6 +2411,23 @@ if ((window.CURRENT_USER?.area || '') !== 'TI') {
     form.dataset.submitting = '0';
     return;
   }
+  if (!fechaInicio.value) {
+    showMsg('La fecha de inicio es obligatoria.');
+    fechaInicio.focus();
+    return;
+}
+
+if (!fechaFin.value) {
+    showMsg('La fecha de término es obligatoria.');
+    fechaFin.focus();
+    return;
+}
+
+if (new Date(fechaFin.value) < new Date(fechaInicio.value)) {
+    showMsg('La fecha de término no puede ser menor a la fecha de inicio.');
+    fechaFin.focus();
+    return;
+}
   if (!txtDesc.value.trim()) {
     showMsg('La descripción es obligatoria.');
     txtDesc.focus();
@@ -2411,8 +2447,8 @@ if ((window.CURRENT_USER?.area || '') !== 'TI') {
   payload.append('user_id', String(foundUserId));
   payload.append('ticket_para_mi', isMine ? '1' : '0');
   payload.append('descripcion', txtDesc.value || '');
-  payload.append('inicio', '');
-  payload.append('fin', '');
+ payload.append('inicio', fechaInicio.value);
+payload.append('fin', fechaFin.value);
 
 
   try {
